@@ -2,6 +2,6 @@
 dist
 node_modules
 /coverage
-# generated
+generated
 venv
 Index.md
