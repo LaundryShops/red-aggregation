@@ -1,0 +1,16 @@
+{
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": {
+    "allowSyntheticDefaultImports": true,
+    "typeRoots": [
+      "node_modules/@types",
+      "./@types"
+    ]
+  },
+  "include": ["**/src/**/*.ts", "**/src/**/*.js", "test/**/*.ts", "packages/template3/src/services/product/product.spec.ts"],
+  "exclude": [
+    "**/node_modules/**",
+    "**/dist/types/**",
+    "node_modules"
+  ]
+}

@@ -1,0 +1,21 @@
+{
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": {
+    "rootDir": "./src",
+    "outDir": "./dist",
+    "declarationDir": "./dist/types",
+    "tsBuildInfoFile": "./dist/.tsbuildinfo",
+    "module": "CommonJS",
+    "target": "ES2019",
+    "sourceMap": true
+  },
+  "include": ["src/**/*.ts"],
+  "exclude": [
+    "src/tests/**/*",
+    "**/*.spec.ts",
+    "**/*.test.ts",
+    "node_modules",
+    "dist"
+  ]
+}
+
