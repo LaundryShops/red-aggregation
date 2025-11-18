@@ -9,6 +9,10 @@ export * from './domain/unpaged';
 export * from './domain/abstractPageRequest';
 export * from './domain/keysetPage';
 
+export * from './query/clause';
+export * from './query/diskUse';
+export * from './query/standardDefinition';
+
 // Operations
 export * from './operations/addFieldsOperation';
 export * from './operations/countOperation';

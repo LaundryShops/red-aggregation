@@ -2,6 +2,7 @@ export type Serializable = Array<string | number>;
 
 export interface Keyset {
     getTuple(): Array<string | number>;
+    hashCode(): number;
 }
 
 export interface KeysetPage {
