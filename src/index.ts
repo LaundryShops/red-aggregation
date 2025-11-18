@@ -1,3 +1,14 @@
+export * from './domain/order';
+export * from './domain/page';
+export * from './domain/pageImpl';
+export * from './domain/pageRequest';
+export * from './domain/pageable';
+export * from './domain/slice';
+export * from './domain/sort';
+export * from './domain/unpaged';
+export * from './domain/abstractPageRequest';
+export * from './domain/keysetPage';
+
 // Operations
 export * from './operations/addFieldsOperation';
 export * from './operations/countOperation';
@@ -42,7 +53,7 @@ export * from './operator/arrayOperators/last';
 export * from './operator/arrayOperators/reduce';
 export * from './operator/arrayOperators/reverseArray';
 export * from './operator/arrayOperators/size';
-export * from './operator/arrayOperators/slice';
+export { Slice as SliceOperator } from './operator/arrayOperators/slice';
 
 // Operators - booleanOperators (no folder index)
 export * from './operator/booleanOperators/and';
