@@ -26,6 +26,7 @@ import { LookupOperation, LookupOperationBuilder } from './operations/lookupOper
 import { CountOperationBuilder } from './operations/countOperation';
 import { ReplaceRootOperation } from './operations/replaceRootOperation';
 import { ReplaceRootOperationBuilder } from './operations/replaceRootOperation/replaceRootOperationBuilder';
+import { TypeBasedAggregationOperationContext } from './aggregate/aggregateOperationContext/typeBasedAggregationOperationContext';
 
 export class Aggregation {
 	public static readonly DEFAULT_CONTEXT = AggregationOperationRenderer.DEFAULT_CONTEXT;
@@ -225,13 +226,21 @@ export class Aggregation {
 		return this;
 	}
 
-	toPipeline(rootContext: AggregationOperationContext): Document {
-		return this.pipeline.toDocuments(rootContext);
+	toPipeline(rootContext?: AggregationOperationContext): Document {
+		if (rootContext) {
+			return this.pipeline.toDocuments(rootContext);
+		}
+
+		return this.toPipeline(this.createAggregationContext());
 	}
 
 	getPipeline(): Readonly<AggregationPipeline> {
 		return this.pipeline;
 	}
+
+	private createAggregationContext() {
+        return new TypeBasedAggregationOperationContext();
+    }
 
 	toDocument(inputCollectionName: string, rootContext: AggregationOperationContext) {
 		const cmd: Document = { aggregate: inputCollectionName };
