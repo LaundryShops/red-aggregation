@@ -9,6 +9,10 @@ export * from './domain/unpaged';
 export * from './domain/abstractPageRequest';
 export * from './domain/keysetPage';
 
+export * from './query/clause';
+export * from './query/diskUse';
+export * from './query/standardDefinition';
+
 // Operations
 export * from './operations/addFieldsOperation';
 export * from './operations/countOperation';
@@ -37,6 +41,7 @@ export * from './operator/arithmeticOperators';
 export * from './operator/setOperators';
 export * from './operator/stringOperators';
 export * from './operator/variableOperators';
+export { ExpressionVariable } from './operator/variableOperators/let';
 
 // Operators - arrayOperators (no folder index)
 export * from './operator/arrayOperators/arrayElemAt';
