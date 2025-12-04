@@ -21,7 +21,7 @@ import { LimitOperation } from './operations/limitOperation';
 import { MatchOperation } from './operations/matchOperation';
 import { IClauseDefinition } from './query/standardDefinition';
 import { MergeOperation } from './operations/mergeOperation';
-import { FacetOperation } from './operations/facetOperation';
+import { FacetOperation, FacetOperationBuilder } from './operations/facetOperation';
 import { LookupOperation, LookupOperationBuilder } from './operations/lookupOperation';
 import { CountOperationBuilder } from './operations/countOperation';
 import { ReplaceRootOperation } from './operations/replaceRootOperation';
@@ -33,7 +33,7 @@ export class Aggregation {
 	public static readonly CURRENT = SystemVariables.CURRENT.toString();
 	public static readonly DEFAULT_OPTIONS = this.newAggregationOptions().build();
 
-	protected readonly pipeline!: AggregationPipeline;
+	protected pipeline!: AggregationPipeline;
 	private readonly options!: AggregateOptions;
 
 	protected constructor(operations: AggregateOperation[]);
@@ -171,7 +171,7 @@ export class Aggregation {
 	}
 
 	public static facet(): FacetOperation;
-	public static facet(...operations: AggregateOperation[]): FacetOperation;
+	public static facet(...operations: AggregateOperation[]): FacetOperationBuilder;
 	public static facet() {
 		if (arguments.length === 0) {
 			return FacetOperation.EMPTY;
@@ -211,6 +211,18 @@ export class Aggregation {
 
 	public static field(name: string) {
 		return Fields.field(name);
+	}
+
+	addPipeline(pipeline: AggregateOperation): Aggregation;
+	addPipeline(pipeline: AggregateOperation[]): Aggregation
+	addPipeline(pipeline: AggregateOperation | AggregateOperation[]) {
+		if (Array.isArray(pipeline)) {
+			this.pipeline = this.pipeline.add(pipeline)
+		} else {
+			this.pipeline = this.pipeline.add(pipeline)
+		}
+
+		return this;
 	}
 
 	toPipeline(rootContext: AggregationOperationContext): Document {
