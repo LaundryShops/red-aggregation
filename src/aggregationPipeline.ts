@@ -5,7 +5,7 @@ import { Assert } from './utils';
 import { MergeOperation } from './operations/mergeOperation';
 
 export class AggregationPipeline {
-	private readonly pipeline: AggregateOperation[];
+	private pipeline: AggregateOperation[];
 
 	static of(...stages: AggregateOperation[]) {
 		return new AggregationPipeline([...stages]);
@@ -27,13 +27,20 @@ export class AggregationPipeline {
         return AggregationOperationRenderer.toDocument(this.pipeline, context);
     }
 
-	add(aggregationOperation: AggregateOperation) {
+	add(stage: AggregateOperation): AggregationPipeline
+	add(stage: AggregateOperation[]): AggregationPipeline
+	add(stage: AggregateOperation | AggregateOperation[]) {
 		Assert.notNull(
-			aggregationOperation,
+			stage,
 			'Aggregation operations must not be null'
 		);
 
-		this.pipeline.push(aggregationOperation);
+		if (Array.isArray(stage)) {
+			this.pipeline = this.pipeline.concat(...stage);
+		} else {
+			this.pipeline.push(stage);
+		}
+
 		return this;
 	}
 
