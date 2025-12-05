@@ -31,7 +31,7 @@ export class ExposedFieldsAggregationOperationContext extends AggregationOperati
 	}
 
 	inheritAndExpose(field: ExposedFields): InheritingExposedFieldsAggregationOperationContext {
-		const InheritingExposedFieldsAggregationOperationContext = require('./inheritingExposedFieldAggregationOperationContext');
+		const { InheritingExposedFieldsAggregationOperationContext } = require('./inheritingExposedFieldAggregationOperationContext');
 		return new InheritingExposedFieldsAggregationOperationContext(field, this);
 	}
 
