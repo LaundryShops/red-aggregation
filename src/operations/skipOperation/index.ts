@@ -8,7 +8,7 @@ export class SkipOperation extends AggregateOperation {
 
 	constructor(skipCount: number) {
 		super();
-		Assert.isTrue(skipCount > 0, 'Skip count must not be negative');
+		Assert.isTrue(skipCount >= 0, 'Skip count must not be negative');
 
 		this.skipCount = skipCount;
 	}

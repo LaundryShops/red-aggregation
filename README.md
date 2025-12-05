@@ -2,6 +2,8 @@
 
 **Red Aggregate** là một thư viện hỗ trợ xây dựng MongoDB Aggregation Pipeline bằng TypeScript với API kiểu fluent, giúp bạn tái sử dụng và chia sẻ các pipeline phức tạp một cách nhất quán.
 
+- **GitHub**: [LaundryShops/red-aggregation](https://github.com/LaundryShops/red-aggregation)
+
 ### Cài đặt
 
 ```bash
