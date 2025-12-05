@@ -226,7 +226,7 @@ export class Aggregation {
 		return this;
 	}
 
-	toPipeline(rootContext?: AggregationOperationContext): Document {
+	toPipeline(rootContext?: AggregationOperationContext): Document[] {
 		if (rootContext) {
 			return this.pipeline.toDocuments(rootContext);
 		}
