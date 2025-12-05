@@ -53,8 +53,8 @@ describe('Aggregation', () => {
 
 		expect(aggregation.getPipeline()).toBeInstanceOf(AggregationPipeline);
 		expect(pipelineDocs).toEqual([
-			[{ $project: { name: 1 } }],
-			[{ $skip: 5 }],
+			{ $project: { name: 1 } },
+			{ $skip: 5 },
 		]);
 	});
 
@@ -69,8 +69,8 @@ describe('Aggregation', () => {
 		);
 
 		expect(pipelineDocs).toEqual([
-			[{ $limit: 3 }],
-			[{ $sort: { createdAt: -1 } }],
+			{ $limit: 3 },
+			{ $sort: { createdAt: -1 } },
 		]);
 	});
 
@@ -84,7 +84,7 @@ describe('Aggregation', () => {
 		);
 		const command = aggregation.toDocument('products', context);
 
-		expect(pipelineDocs).toEqual([[{ $project: { price: 1 } }]]);
+		expect(pipelineDocs).toEqual([{ $project: { price: 1 } }]);
 		expect(command).toEqual({
 			aggregate: 'products',
 			pipeline: pipelineDocs,
@@ -104,8 +104,8 @@ describe('Aggregation', () => {
 		);
 
 		expect(pipelineDocs).toEqual([
-			[{ $project: { name: 1 } }],
-			[{ $skip: 5 }],
+			{ $project: { name: 1 } },
+			{ $skip: 5 },
 		]);
 	});
 
@@ -123,9 +123,9 @@ describe('Aggregation', () => {
 		);
 
 		expect(pipelineDocs).toEqual([
-			[{ $project: { name: 1 } }],
-			[{ $skip: 5 }],
-			[{ $limit: 3 }],
+			{ $project: { name: 1 } },
+			{ $skip: 5 },
+			{ $limit: 3 },
 		]);
 	});
 

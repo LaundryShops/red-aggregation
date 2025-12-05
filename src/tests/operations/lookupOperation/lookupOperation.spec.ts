@@ -72,7 +72,7 @@ describe("LookupOperation $lookup operator", () => {
                 let: {
                     orderId: "$orderId"
                 },
-                pipeline: [[{ $match: { $expr: { $eq: ["$id", "$$orderId"] } } }]]
+                pipeline: [{ $match: { $expr: { $eq: ["$id", "$$orderId"] } } }]
             }
         });
     });
@@ -113,7 +113,7 @@ describe("LookupOperation $lookup operator", () => {
                 let: {
                     customerId: "$customerId"
                 },
-                pipeline: [[{ $match: { status: "ACTIVE" } }]]
+                pipeline: [{ $match: { status: "ACTIVE" } }]
             }
         });
     });
@@ -140,8 +140,8 @@ describe("LookupOperation $lookup operator", () => {
                     customerId: "$customerId"
                 },
                 pipeline: [
-                    [{ $match: { status: "ACTIVE" } }],
-                    [{ $project: { status: 1 } }]
+                    { $match: { status: "ACTIVE" } },
+                    { $project: { status: 1 } }
                 ]
             }
         });
