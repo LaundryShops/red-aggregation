@@ -1,3 +1,4 @@
+import { Document } from 'mongodb';
 import { AggregateOperation } from './aggregateOperation';
 import { AggregationOperationRenderer } from './aggregate/aggregateOperationContext/aggregateOperationRenderer';
 import { AggregationOperationContext } from './aggregate/aggregateOperationContext/aggregationOperationContext';
@@ -15,25 +16,19 @@ export class AggregationPipeline {
 		if (aggregationOperations === undefined) {
 			aggregationOperations = [];
 		}
-		Assert.notNull(
-			aggregationOperations,
-			'Aggregation operations must not be null'
-		);
+		Assert.notNull(aggregationOperations, 'Aggregation operations must not be null');
 		this.pipeline = aggregationOperations;
 	}
 
-    toDocuments(context: AggregationOperationContext) {
-        this.verify();
-        return AggregationOperationRenderer.toDocument(this.pipeline, context);
-    }
+	toDocuments(context: AggregationOperationContext): Document[] {
+		this.verify();
+		return AggregationOperationRenderer.toDocument(this.pipeline, context);
+	}
 
-	add(stage: AggregateOperation): AggregationPipeline
-	add(stage: AggregateOperation[]): AggregationPipeline
+	add(stage: AggregateOperation): AggregationPipeline;
+	add(stage: AggregateOperation[]): AggregationPipeline;
 	add(stage: AggregateOperation | AggregateOperation[]) {
-		Assert.notNull(
-			stage,
-			'Aggregation operations must not be null'
-		);
+		Assert.notNull(stage, 'Aggregation operations must not be null');
 
 		if (Array.isArray(stage)) {
 			this.pipeline = this.pipeline.concat(...stage);
@@ -58,22 +53,12 @@ export class AggregationPipeline {
 
 	verify() {
 		for (const operation of this.pipeline) {
-			if (
-				AggregationPipeline.isOut(operation) &&
-				this.isLast(operation)
-			) {
-				throw new Error(
-					'The $out operator must be the last stage in the pipeline'
-				);
+			if (AggregationPipeline.isOut(operation) && this.isLast(operation)) {
+				throw new Error('The $out operator must be the last stage in the pipeline');
 			}
 
-			if (
-				AggregationPipeline.isMerge(operation) &&
-				this.isLast(operation)
-			) {
-				throw new Error(
-					'The $merge operator must be the last stage in the pipeline'
-				);
+			if (AggregationPipeline.isMerge(operation) && this.isLast(operation)) {
+				throw new Error('The $merge operator must be the last stage in the pipeline');
 			}
 		}
 	}
@@ -84,11 +69,7 @@ export class AggregationPipeline {
 		}
 
 		const operation = this.lastOperation();
-		return (
-			operation !== null &&
-			(AggregationPipeline.isOut(operation) ||
-				AggregationPipeline.isMerge(operation))
-		);
+		return operation !== null && (AggregationPipeline.isOut(operation) || AggregationPipeline.isMerge(operation));
 	}
 
 	isEmpty() {
@@ -96,15 +77,11 @@ export class AggregationPipeline {
 	}
 
 	private isLast(aggregateOperation: AggregateOperation) {
-		return (
-			this.pipeline.indexOf(aggregateOperation) ===
-			this.pipeline.length - 1
-		);
+		return this.pipeline.indexOf(aggregateOperation) === this.pipeline.length - 1;
 	}
 
 	private static isMerge(operator: AggregateOperation) {
-		return operator instanceof MergeOperation
-			|| operator.getOperator() === '$merge'
+		return operator instanceof MergeOperation || operator.getOperator() === '$merge';
 	}
 
 	private static isOut(operator: AggregateOperation) {

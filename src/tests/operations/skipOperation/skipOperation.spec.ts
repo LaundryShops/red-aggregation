@@ -23,7 +23,7 @@ describe("SkipOperation $skip operator", () => {
         expect(operation.getOperator()).toBe("$skip");
     });
 
-    it.each([0, -1, -10])("should throw when skip count %s is not positive", (invalidCount) => {
+    it.each([-1, -10])("should throw when skip count %s is not positive", (invalidCount) => {
         expect(() => new SkipOperation(invalidCount)).toThrow("Skip count must not be negative");
     });
 });

@@ -134,9 +134,16 @@ export class Aggregation {
 		}
 	}
 
-	public static group(fields: Fields) {
-		return new GroupOperation(fields);
-	}
+	static group(...fields: string[]): GroupOperation;
+    static group(fields: Fields): GroupOperation;
+    static group(fields: Fields | string) {
+        if (fields instanceof Fields) {
+            return new GroupOperation(fields)
+        }
+        // rest parameter
+        return new GroupOperation(Fields.fields(...arguments))
+    }
+
 
 	public static sort(sort: Sort): SortOperation;
 	public static sort(direction: Direction, fields: string[]): SortOperation;
@@ -214,6 +221,10 @@ export class Aggregation {
 		return Fields.field(name);
 	}
 
+	public static fields(...names: string[]) {
+		return Fields.fields(...names);
+	}
+
 	addPipeline(pipeline: AggregateOperation): Aggregation;
 	addPipeline(pipeline: AggregateOperation[]): Aggregation
 	addPipeline(pipeline: AggregateOperation | AggregateOperation[]) {
@@ -226,7 +237,7 @@ export class Aggregation {
 		return this;
 	}
 
-	toPipeline(rootContext?: AggregationOperationContext): Document {
+	toPipeline(rootContext?: AggregationOperationContext): Document[] {
 		if (rootContext) {
 			return this.pipeline.toDocuments(rootContext);
 		}

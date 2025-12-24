@@ -51,7 +51,7 @@ describe("UnionWithOperation $unionWith operator", () => {
         expect(document).toEqual({
             $unionWith: {
                 coll: "archivedOrders",
-                pipeline: [[{ $match: { status: "ACTIVE" } }]]
+                pipeline: [{ $match: { status: "ACTIVE" } }]
             }
         });
     });
@@ -86,8 +86,8 @@ describe("UnionWithOperation $unionWith operator", () => {
             $unionWith: {
                 coll: "archivedOrders",
                 pipeline: [
-                    [{ $match: { type: "A" } }],
-                    [{ $project: { type: 1 } }]
+                    { $match: { type: "A" } },
+                    { $project: { type: 1 } }
                 ]
             }
         });

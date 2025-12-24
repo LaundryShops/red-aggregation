@@ -46,11 +46,11 @@ export class AggregationOperationRenderer {
     static readonly DEFAULT_CONTEXT = new NoOpAggregationOperationContext();
 
     static toDocument(operations: AggregateOperation[], rootContext: AggregationOperationContext) {
-        const operationDocuments: Document[] = [];
+        let operationDocuments: Document[] = [];
         let contextToUse = rootContext;
 
         for(const operation of operations) {
-            operationDocuments.push(operation.toPipelineStages(contextToUse));
+            operationDocuments = operationDocuments.concat(operation.toPipelineStages(contextToUse));
             
             if(operation instanceof FieldsExposingAggregationOperation) {
                 const fields = operation.getFields();
