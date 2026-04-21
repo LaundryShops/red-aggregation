@@ -1,0 +1,47 @@
+---
+description: Dùng red-aggregate để dựng pipeline aggregate hoặc filter/find có $expr — ánh xạ mệnh đề truy vấn
+globs: "**/*.ts"
+alwaysApply: false
+---
+
+# Pipeline aggregate và “clause” truy vấn
+
+## Vai trò các lớp
+
+- **`AggregationExpression`**: sinh *một* object biểu thức aggregation (ví dụ `{ $add: [...] }`). Gọi `.toDocument(context)`.
+- **`AggregateOperation`**: abstraction *một stage* — `getOperator()`, `toDocument(context)`, `toPipelineStages(context)` trả về `[stage]`. Mở rộng khi cần type cho stage tùy chỉnh.
+
+## Chọn `AggregationOperationContext`
+
+- Pipeline đơn, field thường: `new NoOpAggregationOperationContext()`.
+- Sub-pipeline / field được expose: dùng `context.expose(...)` / context kế thừa như code hiện có trong `src/aggregate/` và `*AggregationOperationContext.ts`.
+
+## Ánh xạ mệnh đề → MongoDB (gợi ý)
+
+| Mệnh đề / ý đồ | Stage hoặc chỗ đặt | Ghi chú với red-aggregate |
+|------------------|--------------------|---------------------------|
+| Lọc (WHERE) | `$match` | Điều kiện đơn: document filter BSON. Điều kiện dùng toán tử agg: bọc trong `$expr` và đặt biểu thức từ `.toDocument(ctx)` bên trong. |
+| Chiếu cột (SELECT) | `$project` / `$addFields` | Giá trị field = kết quả `.toDocument(ctx)` của operator / biểu thức. |
+| Sắp xếp | `$sort` | Document `{ field: 1 \| -1 }`, không cần `AggregationExpression` trừ khi dùng `$meta`. |
+| Nhóm | `$group` | `_id` và accumulator: phần accumulator có thể là object `{ $sum: ... }` — build phần `$...` bằng thư viện nếu đã có operator tương ứng. |
+| Giới hạn / phân trang | `$limit`, `$skip` | Số nguyên, không qua red-aggregate. |
+
+## Ví dụ tối thiểu
+
+```typescript
+import { Add } from "./operator/arithmeticOperators/add";
+import { NoOpAggregationOperationContext } from "./noOpAggregationOperationContext";
+
+// ❌ BAD — tự viết { $add: [...] } tay khi đã có Add (dễ lệch Field / context)
+// const bad = { $project: { t: { $add: ["$a", 1] } } };
+
+const ctx = new NoOpAggregationOperationContext();
+// ✅ GOOD — cùng context cho mọi .toDocument trong pipeline
+const project = { $project: { t: Add.valueOf("a").add(1).toDocument(ctx) } };
+const pipeline = [{ $match: { status: "active" } }, project];
+```
+
+## `find` / query có điều kiện aggregation
+
+- So sánh field đơn giản: filter BSON thường. Cần toán tử agg trên biểu thức: `filter: { $expr: <AggregationExpression.toDocument(ctx)> }`.
+- Luôn BSON hợp lệ: `Document[]` cho `.aggregate()`, object cho `.find()`.
