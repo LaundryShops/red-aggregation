@@ -1,0 +1,26 @@
+---
+description: Hành vi agent — think first, đơn giản, diff tối thiểu, mục tiêu kiểm chứng được (bám CLAUDE.md)
+alwaysApply: true
+---
+
+# Hành vi coding
+
+Bản đầy đủ: [CLAUDE.md](../../CLAUDE.md) và skill [karpathy-guidelines](../skills/karpathy-guidelines/SKILL.md). Ưu tiên bám các tệp đó; rule này nhắc ngắn khi làm việc trong repo.
+
+## 1. Think Before Coding
+
+Nêu rõ giả định; không chắc thì hỏi. Nhiều cách hiểu → trình bày, không tự chọn im lặng. Có hướng đơn giản hơn → nói. Mơ hồ → dừng, gọi tên chỗ chưa rõ, hỏi.
+
+## 2. Simplicity First
+
+Chỉ code tối thiểu đủ yêu cầu. Không thêm tính năng, abstraction, cấu hình, hay xử lý lỗi cho tình huống không thực tế. Quá dài → rút gọn.
+
+## 3. Surgical Changes
+
+Chỉ chạm phần cần thiết; không chỉnh “cho đẹp” code/format/comment lân cận. Khớp style sẵn có. Dead code không liên quan: nhắc, không xóa trừ khi được yêu cầu. Dọn import/biến/hàm **do thay đổi của mình** làm thừa.
+
+## 4. Goal-Driven Execution
+
+Đặt tiêu chí kiểm chứng (test repro, test invalid, test trước/sau refactor). Nhiều bước: kế hoạch ngắn, mỗi bước kèm cách verify.
+
+**Tradeoff:** thiên về thận trọng; task rất nhỏ thì cân nhắc.
