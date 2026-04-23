@@ -1,0 +1,32 @@
+---
+description: Quy ước red-aggregate — biểu thức aggregation TypeScript sinh BSON MongoDB
+globs: src/**/*.ts
+alwaysApply: false
+---
+
+# red-aggregate (mongodb-aggregation)
+
+## Kiến trúc
+
+- Mọi biểu thức kế thừa `AggregationExpression` và triển khai `toDocument(context: AggregationOperationContext)`.
+- Toán tử thường kế thừa `AbstractOperatorExpression`: override `getMongoMethod()` trả về tên operator MongoDB (ví dụ `"$add"`). Đối tượng trả về là `{ [operator]: ... }` do lớp cha dựng.
+- `AbstractOperatorExpression.unpack` đã biết `Field`, `Fields`, `AggregationExpression`, `SystemVariables`, mảng, `Map` — mở rộng bằng nhánh mới chỉ khi thật sự cần.
+
+## Operator mới
+
+- Đặt file trong `src/operator/<nhóm>/` theo nhóm MongoDB (arithmetic, string, array, compare, v.v.), bám cấu trúc thư mục hiện có.
+- Dùng `Assert` từ `src/utils` cho điều kiện đầu vào (ví dụ `Assert.notNull`).
+- Tham chiếu field: `Fields.field` / `Fields.fields` hoặc pattern `static valueOf(...)` giống operator cùng loại (xem `Add`).
+
+## Factory / facade
+
+- Nếu nhóm có `*Factory` hoặc lớp `*Operators`, thêm entry point mới và gọi constructor/`valueOf` tương ứng với operator BSON.
+
+## Kiểm thử
+
+- Đặt spec dưới `src/tests/...`, đuôi `*.spec.ts`, chạy `npm test` (Jest + ts-jest).
+- Kiểm tra tích hợp `toDocument`: dùng `new NoOpAggregationOperationContext()` và `expect(...).toEqual({ $op: ... })` khớp pipeline MongoDB.
+
+## Kiểu và phụ thuộc
+
+- Kiểu `Document` từ `mongodb`. Không đổi style import/định dạng file ngoài phạm vi thay đổi.

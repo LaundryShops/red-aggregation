@@ -25,6 +25,7 @@
     "typescript": "^5.9.2"
   },
   "dependencies": {
-    "mongodb": "6.19.0"
+    "mongodb": "6.19.0",
+    "reflect-metadata": "0.2.2"
   }
 }

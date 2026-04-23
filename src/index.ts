@@ -105,3 +105,6 @@ export * from './operator/objectOperators/setField';
 export * from './aggregation';
 export * from './aggregationUpdate';
 export { Aggregation as default } from './aggregation';
+
+// Core (MongoTemplate + Mapping + Repository)
+export * from "./core";
