@@ -28,9 +28,10 @@ export class BasicMongoPersistentEntity<T>
         collection: string,
         options?: {
             collation?: CollationOptions | null;
+            idProperty?: MongoPersistentProperty | null;
         },
     ) {
-        super(type);
+        super(type, options?.idProperty ?? null);
 
         this.collection = collection;
         this.collation = options?.collation ?? null;

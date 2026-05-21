@@ -75,11 +75,23 @@ describe("MappingMongoEntityInformation", () => {
     });
 
     describe("getIdAttribute", () => {
-        it("should return '_id' as the id attribute", () => {
+        it("should return '_id' as fallback when entity has no id property", () => {
             const entity = createEntityMetadata("products");
             const info = new MappingMongoEntityInformation<Product, ObjectId>(entity);
 
             expect(info.getIdAttribute()).toBe("_id");
+        });
+
+        it("should read id property name from entity metadata when present", () => {
+            const entity = createEntityMetadata("products");
+            jest.spyOn(entity, "hasIdProperty").mockReturnValue(true);
+            jest.spyOn(entity, "getRequiredIdProperty").mockReturnValue({
+                getName: () => "productId",
+                getType: () => String as unknown as EntityClass<unknown>,
+            });
+            const info = new MappingMongoEntityInformation<Product, string>(entity);
+
+            expect(info.getIdAttribute()).toBe("productId");
         });
     });
 

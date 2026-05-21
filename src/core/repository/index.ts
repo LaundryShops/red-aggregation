@@ -4,5 +4,6 @@ export * from "./listCrudRepository";
 export * from "./listPagingAndSortingRepository";
 export * from "./mongoRepository";
 export * from "./pagingAndSortingRepository";
+export * from "./repositoryDecorator";
 export * from "./repositoryFactory";
 export * from "./simpleRepository";

@@ -1,44 +1,144 @@
 # Quick start: MongoTemplate + RepositoryFactory
 
-Từ phiên bản này, thư viện bổ sung một **core layer** giúp bạn thao tác MongoDB theo mô hình *mapping + repository* (repository pattern) một cách tối giản và “type-safe” trong TypeScript.
+Core repository layer cho MongoDB theo hướng *entity-driven mapping*:
 
-## Tính năng mới / cập nhật
+- Entity biết metadata của chính nó qua `@Document`, `@Id`.
+- Repository biết cách thao tác qua `SimpleMongoRepository` hoặc custom repository class.
+- `RepositoryFactory` hỗ trợ cả custom repo class và fallback repo theo entity class.
 
-- **`MongoTemplate`** (`src/core/mongoTemplate.ts`): triển khai `MongoOperations` để thao tác CRUD cơ bản + `aggregate(...)`.
-- **`MappingContext`** (`src/core/mapping/mappingContext.ts`): build + cache `MongoPersistentEntity` theo entity class.
-- **`@Document` + metadata** (`src/core/mapping/document.ts`): khai báo collection name (và metadata khác) cho entity.
-- **`MongoRepositoryFactory`** (alias của `RepositoryFactory`, `src/core/repository/repositoryFactory.ts`):
-  - Sinh repository cho entity class dựa trên `MongoTemplate` + `MappingContext`
-  - Cache repository theo `(EntityClass, collection override)`
-  - Trả về repository có đầy đủ method của `SimpleMongoRepository`
+## Thành phần chính
 
-## Khởi tạo nhanh
+- `MongoTemplate` (`src/core/mongoTemplate.ts`): triển khai `MongoOperations`.
+- `MappingContext` (`src/core/mapping/mappingContext.ts`): build + cache `MongoPersistentEntity`.
+- `@Document` (`src/core/mapping/document.ts`): khai báo collection.
+- `@Id` (`src/core/mapping/id.ts`): khai báo id field.
+- `@Repository` (`src/core/repository/repositoryDecorator.ts`): gắn entity metadata cho repository class.
+- `MongoRepositoryFactory` (alias của `RepositoryFactory`): tạo repository instance và cache.
+
+## Ví dụ khởi tạo nhanh (custom repository class)
 
 ```ts
 import type { Db } from "mongodb";
-import { MongoTemplate, MappingContext, MongoRepositoryFactory } from "red-aggregate";
+import { ObjectId } from "mongodb";
+import {
+  Document,
+  Id,
+  Repository,
+  MongoTemplate,
+  MappingContext,
+  MongoRepositoryFactory,
+  SimpleMongoRepository,
+} from "red-aggregate";
 
-// Entity ví dụ
+@Document({ collection: "users" })
 class User {
-  constructor(public _id: string, public name: string) {}
+  @Id() _id: ObjectId;
+  name: string;
+}
+
+@Repository(User)
+class UserRepository extends SimpleMongoRepository<User, ObjectId> {}
+
+export function bootstrap(db: Db) {
+  const ops = new MongoTemplate(db);
+  const factory = new MongoRepositoryFactory(ops);
+
+  const userRepo = factory.getRepository(UserRepository);
+  return { userRepo };
+}
+```
+
+## Ví dụ khởi tạo đầy đủ (custom method + override collection)
+
+```ts
+import type { Db } from "mongodb";
+import { ObjectId } from "mongodb";
+import {
+  Document,
+  Id,
+  Repository,
+  MongoTemplate,
+  MappingContext,
+  MongoRepositoryFactory,
+  SimpleMongoRepository,
+} from "red-aggregate";
+
+@Document({ collection: "users" })
+class User {
+  @Id() _id: ObjectId;
+  email: string;
+}
+
+@Repository(User, { collection: "users_archive" })
+class UserArchiveRepository extends SimpleMongoRepository<User, ObjectId> {
+  async existsByEmail(email: string): Promise<boolean> {
+    const docs = await this.mongoOperations.find(
+      { email },
+      User,
+      this.metadata.getCollectionName(),
+    );
+    return docs.length > 0;
+  }
 }
 
 export function bootstrap(db: Db) {
   const ops = new MongoTemplate(db);
-  const mappingContext = new MappingContext();
-  const factory = new MongoRepositoryFactory(ops, mappingContext);
+  const factory = new MongoRepositoryFactory(ops, new MappingContext());
 
-  const userRepo = factory.getRepository(User); // đủ method của SimpleMongoRepository
+  const archiveRepo = factory.getRepository(UserArchiveRepository);
+  return { archiveRepo };
+}
+```
 
-  // hoặc override collection (tuỳ nhu cầu)
-  const userRepo2 = factory.getRepository(User, { collection: "users_v2" });
+## Fallback mode (không custom repository class)
 
-  return { userRepo, userRepo2 };
+Bạn có thể gọi trực tiếp theo entity class để lấy `SimpleMongoRepository`:
+
+```ts
+import type { Db } from "mongodb";
+import { Document, Id, MongoTemplate, MappingContext, MongoRepositoryFactory } from "red-aggregate";
+
+@Document({ collection: "users" })
+class User {
+  @Id() _id!: string;
+  name!: string;
+}
+
+export function bootstrap(db: Db) {
+  const factory = new MongoRepositoryFactory(new MongoTemplate(db), new MappingContext());
+
+  const userRepo = factory.getRepository(User);
+  const userRepoV2 = factory.getRepository(User, { collection: "users_v2" });
+
+  return { userRepo, userRepoV2 };
 }
 ```
 
 ## Ghi chú
 
-- **Cache behavior**: `MongoRepositoryFactory` sẽ cache theo key `TypeName::collectionOverride`, nên gọi nhiều lần vẫn trả về cùng instance.
-- **Override collection**: phù hợp multi-tenant hoặc khi muốn tách collection theo ngữ cảnh.
+- `factory.getRepository(UserRepository)` cache theo **repository class identity**.
+- `factory.getRepository(User, { collection })` cache theo **entity + collection override**.
+- Chưa wire `@Version` trong flow quick start hiện tại.
+
+### Collection precedence
+
+Khi cùng lúc khai báo collection ở nhiều nơi, thứ tự ưu tiên là:
+
+1. `@Repository(Entity, { collection: "..." })`
+2. `@Document({ collection: "..." })`
+3. Default name từ class entity (`defaultCollectionName`)
+
+Ví dụ:
+
+```ts
+@Document({ collection: "users" })
+class User {
+  @Id() _id!: string;
+}
+
+@Repository(User, { collection: "users_archive" })
+class UserArchiveRepository extends SimpleMongoRepository<User, string> {}
+```
+
+Khi gọi `factory.getRepository(UserArchiveRepository)`, repository này sẽ thao tác trên collection `users_archive`.
 

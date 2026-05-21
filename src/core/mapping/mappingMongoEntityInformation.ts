@@ -45,10 +45,9 @@ export class MappingMongoEntityInformation<T, ID>
     }
 
     getIdAttribute(): string {
-        return '_id';
-        // return this.entityMetadata.hasIdProperty()
-        //     ? this.entityMetadata.getRequiredIdProperty().getName()
-        //     : "_id";
+        return this.entityMetadata.hasIdProperty()
+            ? this.entityMetadata.getRequiredIdProperty().getName()
+            : "_id";
     }
 
     isVersioned(): boolean {

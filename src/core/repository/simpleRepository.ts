@@ -24,8 +24,8 @@ function sortToMongoSort(sort: Sort): Record<string, 1 | -1> {
 
 export class SimpleMongoRepository<T, ID = ObjectId> implements MongoRepository<T, ID> {
     constructor(
-        private readonly metadata: MongoEntityInformation<T, ID>,
-        private readonly mongoOperations: MongoOperations,
+        protected readonly metadata: MongoEntityInformation<T, ID>,
+        protected readonly mongoOperations: MongoOperations,
     ) {
         Assert.notNull(metadata, "MongoEntityInformation must not be null");
         Assert.notNull(mongoOperations, "MongoOperations must not be null");
@@ -35,7 +35,7 @@ export class SimpleMongoRepository<T, ID = ObjectId> implements MongoRepository<
         return this.metadata.getEntityType() as EntityClass<T>;
     }
 
-    private get collectionName(): string {
+    protected get collectionName(): string {
         return this.metadata.getCollectionName();
     }
 
@@ -43,6 +43,7 @@ export class SimpleMongoRepository<T, ID = ObjectId> implements MongoRepository<
         const attr = this.metadata.getIdAttribute();
         return { [attr]: id } as Filter<Document>;
     }
+    
     async doAggregate<S extends Document>(aggregate: Aggregation) {
         const cursor = this.mongoOperations.aggregate(aggregate.toPipeline(), this.collectionName);
         const stream = await cursor.batchSize(1000).stream({ transform: (doc) => doc })

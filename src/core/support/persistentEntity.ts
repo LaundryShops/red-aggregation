@@ -1,5 +1,4 @@
 import type { EntityClass } from "./entityMetadata";
-import { MongoPersistentProperty } from "./mongoPersistentRepository";
 import { PersistentProperty } from "./persistentProperty";
 import { PersistentPropertyAccessor } from "./persistentPropertyAccessor";
 
@@ -23,9 +22,12 @@ export interface PersistentEntity<
     isNew(entity: T): boolean;
 
     hasIdProperty(): boolean;
-    // getRequiredIdProperty(): MongoPersistentProperty;
-    // getRequiredIdProperty(): P;
-    // getRequiredVersionProperty(): MongoPersistentProperty;
+
+    /**
+     * Trả về id property (vd. từ `@Id`); ném nếu {@link hasIdProperty} là `false`.
+     */
+    getRequiredIdProperty(): P;
+
     hasVersionProperty(): boolean;
 
     getIdentifierAccessor(entity: T): IdentifierAccessor;
