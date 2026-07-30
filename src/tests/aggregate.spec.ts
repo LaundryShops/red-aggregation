@@ -121,8 +121,6 @@ describe('Aggregation', () => {
 
 		const pipelineDocs = aggregation.toPipeline()
 
-		console.log(pipelineDocs)
-
 		expect(pipelineDocs).toEqual([
 			{ $project: { name: 1 } },
 			{ $match: { code: '123' } },

@@ -52,13 +52,7 @@ export class BasicPersistentEntity<T, P extends PersistentProperty = PersistentP
     }
 
     private resolveIdAttribute(): string {
-        if (this.idProperty != null) {
-            const named = this.idProperty as unknown as { getName?(): string };
-            if (typeof named.getName === "function") {
-                return named.getName();
-            }
-        }
-        return this.getIdAttributeFallback();
+        return this.hasIdProperty() ? this.getRequiredIdProperty().getName() : this.getIdAttributeFallback();
     }
 
     getType(): EntityClass<T> {

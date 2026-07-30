@@ -72,11 +72,7 @@ class User {
 @Repository(User, { collection: "users_archive" })
 class UserArchiveRepository extends SimpleMongoRepository<User, ObjectId> {
   async existsByEmail(email: string): Promise<boolean> {
-    const docs = await this.mongoOperations.find(
-      { email },
-      User,
-      this.metadata.getCollectionName(),
-    );
+    const docs = await this.findByCriteria({ email });
     return docs.length > 0;
   }
 }
@@ -119,6 +115,7 @@ export function bootstrap(db: Db) {
 - `factory.getRepository(UserRepository)` cache theo **repository class identity**.
 - `factory.getRepository(User, { collection })` cache theo **entity + collection override**.
 - Chưa wire `@Version` trong flow quick start hiện tại.
+- Viết custom finder method trong subclass, dùng 3 helper protected có sẵn trên `SimpleMongoRepository` thay vì tự gọi `mongoOperations`/tự nhắc lại entity class: `findByCriteria(criteria)`, `findOneByCriteria(criteria)` (trả về `Optional<T>`), `countByCriteria(criteria)`. `criteria` nhận filter Mongo thuần hoặc `ClauseDefinition` từ `Clause`.
 
 ### Collection precedence
 

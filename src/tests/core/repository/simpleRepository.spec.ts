@@ -120,5 +120,57 @@ describe("SimpleMongoRepository", () => {
         await repo.deleteAll();
         expect(col.deleteMany).toHaveBeenCalledWith({});
     });
+
+    describe("custom finder helpers (protected)", () => {
+        class UserRepository extends SimpleMongoRepository<User, string> {
+            existsByEmail(email: string): Promise<boolean> {
+                return this.findByCriteria({ email }).then((docs) => docs.length > 0);
+            }
+
+            findByEmail(email: string) {
+                return this.findOneByCriteria({ email });
+            }
+
+            countActive(): Promise<number> {
+                return this.countByCriteria({ active: true });
+            }
+        }
+
+        it("findByCriteria delegates to mongoOperations.find with entityClass + collectionName", async () => {
+            const ops: any = {
+                find: jest.fn(async () => [{ _id: "1", name: "A" }]),
+            };
+            const repo = new UserRepository(metadata, ops);
+
+            const found = await repo.existsByEmail("a@test.com");
+
+            expect(found).toBe(true);
+            expect(ops.find).toHaveBeenCalledWith({ email: "a@test.com" }, User, "users");
+        });
+
+        it("findOneByCriteria delegates to mongoOperations.findOne and wraps result in Optional", async () => {
+            const ops: any = {
+                findOne: jest.fn(async () => ({ _id: "1", name: "A" })),
+            };
+            const repo = new UserRepository(metadata, ops);
+
+            const result = await repo.findByEmail("a@test.com");
+
+            expect(ops.findOne).toHaveBeenCalledWith({ email: "a@test.com" }, User, "users");
+            expect(result.orElse(null as unknown as User)).toEqual({ _id: "1", name: "A" });
+        });
+
+        it("countByCriteria delegates to mongoOperations.count with entityClass + collectionName", async () => {
+            const ops: any = {
+                count: jest.fn(async () => 3),
+            };
+            const repo = new UserRepository(metadata, ops);
+
+            const result = await repo.countActive();
+
+            expect(result).toBe(3);
+            expect(ops.count).toHaveBeenCalledWith({ active: true }, User, "users");
+        });
+    });
 });
 

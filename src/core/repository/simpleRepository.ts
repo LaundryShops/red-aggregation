@@ -8,6 +8,7 @@ import { Optional } from "../../utils/optional";
 import { Assert } from "../../utils";
 import type { MongoEntityInformation } from "../support/mongoEntityInformation";
 import type { MongoOperations } from "../mongo";
+import type { MongoCriteria } from "../mongo/mongoQuery";
 import type { EntityClass } from "../support/entityMetadata";
 import type { List } from "./list";
 import type { MongoRepository } from "./mongoRepository";
@@ -31,7 +32,7 @@ export class SimpleMongoRepository<T, ID = ObjectId> implements MongoRepository<
         Assert.notNull(mongoOperations, "MongoOperations must not be null");
     }
 
-    private get entityClass(): EntityClass<T> {
+    protected get entityClass(): EntityClass<T> {
         return this.metadata.getEntityType() as EntityClass<T>;
     }
 
@@ -39,11 +40,27 @@ export class SimpleMongoRepository<T, ID = ObjectId> implements MongoRepository<
         return this.metadata.getCollectionName();
     }
 
-    private idFilter(id: ID): Filter<Document> {
+    protected idFilter(id: ID): Filter<Document> {
         const attr = this.metadata.getIdAttribute();
         return { [attr]: id } as Filter<Document>;
     }
-    
+
+    /**
+     * Helper cho custom finder method trong subclass — khỏi phải tự truyền lại entity class/collection name.
+     */
+    protected findByCriteria(criteria: MongoCriteria): Promise<List<T>> {
+        return this.mongoOperations.find(criteria, this.entityClass, this.collectionName);
+    }
+
+    protected async findOneByCriteria(criteria: MongoCriteria): Promise<Optional<T>> {
+        const found = await this.mongoOperations.findOne(criteria, this.entityClass, this.collectionName);
+        return new Optional<T>(found);
+    }
+
+    protected countByCriteria(criteria: MongoCriteria): Promise<number> {
+        return this.mongoOperations.count(criteria, this.entityClass, this.collectionName);
+    }
+
     async doAggregate<S extends Document>(aggregate: Aggregation) {
         const cursor = this.mongoOperations.aggregate(aggregate.toPipeline(), this.collectionName);
         const stream = await cursor.batchSize(1000).stream({ transform: (doc) => doc })
