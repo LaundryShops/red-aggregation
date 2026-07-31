@@ -3,6 +3,8 @@ import type { Collection, Db, Document } from "mongodb";
 import { ObjectId } from "mongodb";
 import { MongoTemplate } from "../../../core/mongo";
 import { Document as DocumentDecorator } from "../../../core/mapping/document";
+import { Id } from "../../../core/mapping/id";
+import { String as StringField } from "../../../core/mapping/types/string";
 import { ClauseDefinition } from "../../../query/standardDefinition";
 
 function createCursor<T>(docs: T[]) {
@@ -145,6 +147,172 @@ describe("MongoTemplate", () => {
         await template.remove(entity, "users");
 
         expect(col.deleteOne).toHaveBeenCalledWith({ _id: "x" });
+    });
+
+    describe("write path — defaults, validation, stripUnknownFields", () => {
+        it("fills in a missing field's default before insertOne", async () => {
+            @DocumentDecorator({ collection: "users" })
+            class User {
+                @Id() _id!: ObjectId;
+                @StringField({ default: "anon" }) name!: string;
+            }
+
+            const col = createCollectionMock();
+            const db = createDbMock(col);
+            const template = new MongoTemplate(db);
+
+            await template.insert(new User(), "users");
+
+            expect(col.insertOne).toHaveBeenCalledWith(expect.objectContaining({ name: "anon" }));
+        });
+
+        it("throws before any Mongo call when a field fails validation", async () => {
+            @DocumentDecorator({ collection: "users" })
+            class User {
+                @Id() _id!: ObjectId;
+                @StringField() name!: string;
+            }
+
+            const col = createCollectionMock();
+            const db = createDbMock(col);
+            const template = new MongoTemplate(db);
+
+            const entity = new User();
+            (entity as unknown as Record<string, unknown>).name = 42;
+
+            await expect(template.insert(entity, "users")).rejects.toThrow(/Validation failed/);
+            expect(col.insertOne).not.toHaveBeenCalled();
+        });
+
+        it("strips a field not in the whitelist when stripUnknownFields is true", async () => {
+            @DocumentDecorator({ collection: "users", stripUnknownFields: true })
+            class User {
+                @Id() _id!: ObjectId;
+                @StringField() name!: string;
+            }
+
+            const col = createCollectionMock();
+            const db = createDbMock(col);
+            const template = new MongoTemplate(db);
+
+            const entity = new User() as unknown as Record<string, unknown>;
+            entity.name = "Alice";
+            entity.extra = "sneaky";
+
+            await template.insert(entity, "users");
+
+            const sentDoc = (col.insertOne as jest.Mock).mock.calls[0][0];
+            expect(sentDoc).toEqual({ name: "Alice" });
+        });
+
+        it("keeps an undeclared field when stripUnknownFields is false or unset", async () => {
+            @DocumentDecorator({ collection: "users" })
+            class User {
+                @Id() _id!: ObjectId;
+                @StringField() name!: string;
+            }
+
+            const col = createCollectionMock();
+            const db = createDbMock(col);
+            const template = new MongoTemplate(db);
+
+            const entity = new User() as unknown as Record<string, unknown>;
+            entity.name = "Alice";
+            entity.extra = "sneaky";
+
+            await template.insert(entity, "users");
+
+            const sentDoc = (col.insertOne as jest.Mock).mock.calls[0][0];
+            expect(sentDoc).toEqual({ name: "Alice", extra: "sneaky" });
+        });
+    });
+
+    describe("read path — defaults only, no validate, no strip", () => {
+        it("fills in a missing field's default when reading via findById", async () => {
+            @DocumentDecorator({ collection: "users" })
+            class User {
+                @Id() _id!: ObjectId;
+                @StringField({ default: "anon" }) name!: string;
+            }
+
+            const col = createCollectionMock() as any;
+            col.findOne = jest.fn(async () => ({ _id: "1" })); // legacy doc missing "name"
+            const db = createDbMock(col);
+            const template = new MongoTemplate(db);
+
+            const found = await template.findById("1", User, "users");
+
+            expect(found).toEqual({ _id: "1", name: "anon" });
+        });
+
+        it("fills in a missing field's default when reading via findOne", async () => {
+            @DocumentDecorator({ collection: "users" })
+            class User {
+                @Id() _id!: ObjectId;
+                @StringField({ default: "anon" }) name!: string;
+            }
+
+            const col = createCollectionMock() as any;
+            col.findOne = jest.fn(async () => ({ _id: "1" }));
+            const db = createDbMock(col);
+            const template = new MongoTemplate(db);
+
+            const found = await template.findOne({ _id: "1" } as any, User, "users");
+
+            expect(found).toEqual({ _id: "1", name: "anon" });
+        });
+
+        it("fills in defaults for every document returned by find", async () => {
+            @DocumentDecorator({ collection: "users" })
+            class User {
+                @Id() _id!: ObjectId;
+                @StringField({ default: "anon" }) name!: string;
+            }
+
+            const col = createCollectionMock() as any;
+            col.__cursor.toArray = jest.fn(async () => [{ _id: "1" }, { _id: "2", name: "Bob" }]);
+            const db = createDbMock(col);
+            const template = new MongoTemplate(db);
+
+            const found = await template.find({}, User, "users");
+
+            expect(found).toEqual([
+                { _id: "1", name: "anon" },
+                { _id: "2", name: "Bob" },
+            ]);
+        });
+
+        it("does not strip an undeclared field on read, even when stripUnknownFields is true", async () => {
+            @DocumentDecorator({ collection: "users", stripUnknownFields: true })
+            class User {
+                @Id() _id!: ObjectId;
+                @StringField() name!: string;
+            }
+
+            const col = createCollectionMock() as any;
+            col.findOne = jest.fn(async () => ({ _id: "1", name: "Alice", legacyField: "still here" }));
+            const db = createDbMock(col);
+            const template = new MongoTemplate(db);
+
+            const found = await template.findById("1", User, "users");
+
+            expect(found).toEqual({ _id: "1", name: "Alice", legacyField: "still here" });
+        });
+
+        it("does not validate on read — an invalid value is returned as-is instead of throwing", async () => {
+            @DocumentDecorator({ collection: "users" })
+            class User {
+                @Id() _id!: ObjectId;
+                @StringField() name!: string;
+            }
+
+            const col = createCollectionMock() as any;
+            col.findOne = jest.fn(async () => ({ _id: "1", name: 42 })); // legacy: wrong type
+            const db = createDbMock(col);
+            const template = new MongoTemplate(db);
+
+            await expect(template.findById("1", User, "users")).resolves.toEqual({ _id: "1", name: 42 });
+        });
     });
 });
 

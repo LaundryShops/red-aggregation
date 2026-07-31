@@ -17,10 +17,15 @@ export interface DocumentMetadata {
   language: string;
   /** Chuỗi collation (hoặc alias sang @Collation trong hệ Spring). */
   collation: string;
+  /**
+   * Khi `true`, field không thuộc whitelist (id + field có type decorator như `@String`/`@Number`/...)
+   * sẽ bị loại khỏi document trước khi lưu. Mặc định `false` — mọi field vẫn được lưu như bình thường.
+   */
+  stripUnknownFields: boolean;
 }
 
 export type DocumentOptions = Partial<
-  Pick<DocumentMetadata, 'language' | 'collation'> & {
+  Pick<DocumentMetadata, 'language' | 'collation' | 'stripUnknownFields'> & {
     /** @AliasFor collection */
     value: string;
     collection: string;
@@ -50,6 +55,7 @@ export function Document(options: DocumentOptions = {}): ClassDecorator {
       collection,
       language: options.language ?? '',
       collation: options.collation ?? '',
+      stripUnknownFields: options.stripUnknownFields ?? false,
     };
     Reflect.defineMetadata(DOCUMENT_METADATA, meta, ctor);
   };

@@ -3,6 +3,7 @@ import { ObjectId } from "mongodb";
 import { MappingContext } from "../../../core/mapping/mappingContext";
 import { Document } from "../../../core/mapping/document";
 import { Id } from "../../../core/mapping/id";
+import { String as StringField } from "../../../core/mapping/types/string";
 
 describe("MappingContext", () => {
     describe("getPersistentEntity — collection resolution", () => {
@@ -97,6 +98,62 @@ describe("MappingContext", () => {
             expect(pe.getIdentifierAccessor(acc).getIdentifier()).toBe("acc-123");
             expect(pe.isNew(new Account())).toBe(true);
             expect(pe.isNew(acc)).toBe(false);
+        });
+    });
+
+    describe("getPersistentEntity — stripUnknownFields + typed fields wiring", () => {
+        it("defaults shouldStripUnknownFields to false when @Document omits the option", () => {
+            @Document({ collection: "users" })
+            class User {
+                @Id() _id!: ObjectId;
+                @StringField() email!: string;
+            }
+
+            const ctx = new MappingContext();
+            const pe = ctx.getPersistentEntity(User);
+
+            expect(pe.shouldStripUnknownFields()).toBe(false);
+        });
+
+        it("wires stripUnknownFields: true from @Document", () => {
+            @Document({ collection: "users", stripUnknownFields: true })
+            class User {
+                @Id() _id!: ObjectId;
+                @StringField() email!: string;
+            }
+
+            const ctx = new MappingContext();
+            const pe = ctx.getPersistentEntity(User);
+
+            expect(pe.shouldStripUnknownFields()).toBe(true);
+        });
+
+        it("getKnownFieldNames combines @Id and typed-field decorators", () => {
+            @Document({ collection: "users" })
+            class User {
+                @Id() _id!: ObjectId;
+                @StringField() email!: string;
+                @StringField() name!: string;
+            }
+
+            const ctx = new MappingContext();
+            const pe = ctx.getPersistentEntity(User);
+
+            expect(pe.getKnownFieldNames().sort()).toEqual(["_id", "email", "name"]);
+        });
+
+        it("end-to-end: stripUnknownFields removes an undeclared field, keeps declared + id", () => {
+            @Document({ collection: "users", stripUnknownFields: true })
+            class User {
+                @Id() _id!: ObjectId;
+                @StringField() email!: string;
+            }
+
+            const ctx = new MappingContext();
+            const pe = ctx.getPersistentEntity(User);
+
+            const raw = { _id: "1", email: "a@test.com", extra: "sneaky" };
+            expect(pe.stripUnknownFields(raw)).toEqual({ _id: "1", email: "a@test.com" });
         });
     });
 });

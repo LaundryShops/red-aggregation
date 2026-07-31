@@ -10,8 +10,9 @@ Core repository layer cho MongoDB theo hướng *entity-driven mapping*:
 
 - `MongoTemplate` (`src/core/mongoTemplate.ts`): triển khai `MongoOperations`.
 - `MappingContext` (`src/core/mapping/mappingContext.ts`): build + cache `MongoPersistentEntity`.
-- `@Document` (`src/core/mapping/document.ts`): khai báo collection.
+- `@Document` (`src/core/mapping/document.ts`): khai báo collection, có thể bật `stripUnknownFields`.
 - `@Id` (`src/core/mapping/id.ts`): khai báo id field.
+- Typed field decorators (`src/core/mapping/types/`): `@String`/`@Number`/`@Boolean`/`@Date`/`@Enum`/`@Uuid` — khai báo type + `default` + validate cho field.
 - `@Repository` (`src/core/repository/repositoryDecorator.ts`): gắn entity metadata cho repository class.
 - `MongoRepositoryFactory` (alias của `RepositoryFactory`): tạo repository instance và cache.
 
@@ -109,6 +110,42 @@ export function bootstrap(db: Db) {
   return { userRepo, userRepoV2 };
 }
 ```
+
+## Typed field decorators + `@Document({ stripUnknownFields })`
+
+Field được decorate bởi 1 trong các type dưới đây sẽ:
+
+- Có `default` áp dụng **cả khi lưu lẫn khi đọc** — field đang `undefined` mới được điền; `null` là giá trị cố ý, không bị ghi đè.
+- Được **validate khi lưu** — sai kiểu thì `save()`/`insert()` throw ngay, không gửi gì tới Mongo. Không validate khi đọc (dữ liệu legacy có thể không hợp lệ theo rule mới).
+- Được tính vào whitelist cho `@Document({ stripUnknownFields: true })`.
+
+6 type cho v1 (`src/core/mapping/types/`): `@String`, `@Number`, `@Boolean`, `@Date`, `@Enum`, `@Uuid`.
+
+```ts
+import { ObjectId } from "mongodb";
+import {
+  Document,
+  Id,
+  String as StringField,
+  Number as NumberField,
+  Enum,
+} from "red-aggregate";
+
+@Document({ collection: "users", stripUnknownFields: true })
+class User {
+  @Id() _id!: ObjectId;
+  @StringField({ default: "anon" }) name!: string;
+  @NumberField() age!: number;
+  @Enum(["active", "banned"], { default: "active" }) status!: string;
+}
+```
+
+Với entity trên: lưu 1 `User` mới không set `name` → document lưu có `name: "anon"`; set `age` là string → `save()` throw ngay; đọc lại 1 document cũ thiếu `name` → entity trả về vẫn có `name: "anon"`; field nào không có type decorator (và không phải `@Id`) sẽ bị loại khi lưu vì `stripUnknownFields: true`, nhưng vẫn còn nguyên khi đọc (strip chỉ áp dụng lúc ghi).
+
+**2 giới hạn cần biết:**
+
+1. **`default` là giá trị tĩnh, không phải factory.** `@Date({ default: someDate })` dùng đúng 1 instance `Date` đó cho mọi entity thiếu field — không phải "giờ hiện tại lúc save". Cần giá trị động thì tự set field trước khi gọi `save()`.
+2. **Field không có type decorator nào sẽ không nằm trong whitelist.** Entity có field kiểu object/array/nested (chưa có type decorator hỗ trợ) mà bật `stripUnknownFields: true` sẽ bị loại field đó khi lưu. Chỉ bật option này khi mọi field cần giữ đã được decorate bằng 1 trong 6 type trên.
 
 ## Ghi chú
 

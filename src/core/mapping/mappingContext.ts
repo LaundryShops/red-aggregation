@@ -3,6 +3,7 @@ import type { MongoPersistentEntity } from "../support/mongoPersistentEntity";
 import { getDocumentMetadata, defaultCollectionName } from "./document";
 import { BasicMongoPersistentEntity } from "./basicMongoPersistentEntity";
 import { buildIdProperty } from "./id";
+import { getPropertyTypeMetadata } from "./types/propertyType";
 
 /**
  * Build + cache MongoPersistentEntity theo entity class.
@@ -20,11 +21,14 @@ export class MappingContext {
     const meta = getDocumentMetadata(type as unknown as abstract new (...args: never[]) => unknown);
     const collection = meta?.collection || defaultCollectionName(type.name);
     const idProperty = buildIdProperty(type as unknown as Function);
+    const propertyTypes = getPropertyTypeMetadata(type as unknown as Function);
 
     // Mode đơn giản: chưa parse collation string -> để null
     const entity = new BasicMongoPersistentEntity<T>(type, collection, {
       collation: null,
       idProperty,
+      stripUnknownFields: meta?.stripUnknownFields ?? false,
+      propertyTypes,
     });
 
     this.entities.set(type, entity as MongoPersistentEntity<unknown>);
