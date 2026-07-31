@@ -5,6 +5,9 @@ import { MongoTemplate } from "../../../core/mongo";
 import { Document as DocumentDecorator } from "../../../core/mapping/document";
 import { Id } from "../../../core/mapping/id";
 import { String as StringField } from "../../../core/mapping/types/string";
+import { ObjectId as ObjectIdField } from "../../../core/mapping/types/objectId";
+import { Array as ArrayField } from "../../../core/mapping/types/array";
+import { PlainObject as ObjectField } from "../../../core/mapping/types/object";
 import { ClauseDefinition } from "../../../query/standardDefinition";
 
 function createCursor<T>(docs: T[]) {
@@ -225,6 +228,74 @@ describe("MongoTemplate", () => {
             const sentDoc = (col.insertOne as jest.Mock).mock.calls[0][0];
             expect(sentDoc).toEqual({ name: "Alice", extra: "sneaky" });
         });
+
+        it("fills in missing defaults for @ObjectId/@Array/@Object before insertOne", async () => {
+            const defaultAuthorId = new ObjectId("64b7f9e2a21f6a9e5b000002");
+            const defaultTags = ["general"];
+            const defaultMeta = { flag: false };
+
+            @DocumentDecorator({ collection: "posts" })
+            class Post {
+                @Id() _id!: ObjectId;
+                @ObjectIdField({ default: defaultAuthorId }) authorId!: ObjectId;
+                @ArrayField({ default: defaultTags }) tags!: string[];
+                @ObjectField({ default: defaultMeta }) meta!: Record<string, unknown>;
+            }
+
+            const col = createCollectionMock();
+            const db = createDbMock(col);
+            const template = new MongoTemplate(db);
+
+            await template.insert(new Post(), "posts");
+
+            expect(col.insertOne).toHaveBeenCalledWith(
+                expect.objectContaining({ authorId: defaultAuthorId, tags: defaultTags, meta: defaultMeta }),
+            );
+        });
+
+        it("throws before any Mongo call when @Array is given a non-array value", async () => {
+            @DocumentDecorator({ collection: "posts" })
+            class Post {
+                @Id() _id!: ObjectId;
+                @ArrayField() tags!: string[];
+            }
+
+            const col = createCollectionMock();
+            const db = createDbMock(col);
+            const template = new MongoTemplate(db);
+
+            const entity = new Post();
+            (entity as unknown as Record<string, unknown>).tags = "not-an-array";
+
+            await expect(template.insert(entity, "posts")).rejects.toThrow(/Validation failed/);
+            expect(col.insertOne).not.toHaveBeenCalled();
+        });
+
+        it("strips an undeclared field while keeping @ObjectId/@Array/@Object fields when stripUnknownFields is true", async () => {
+            @DocumentDecorator({ collection: "posts", stripUnknownFields: true })
+            class Post {
+                @Id() _id!: ObjectId;
+                @ObjectIdField() authorId!: ObjectId;
+                @ArrayField() tags!: string[];
+                @ObjectField() meta!: Record<string, unknown>;
+            }
+
+            const col = createCollectionMock();
+            const db = createDbMock(col);
+            const template = new MongoTemplate(db);
+
+            const authorId = new ObjectId("64b7f9e2a21f6a9e5b000003");
+            const entity = new Post() as unknown as Record<string, unknown>;
+            entity.authorId = authorId;
+            entity.tags = ["a", "b"];
+            entity.meta = { flag: true };
+            entity.extra = "sneaky";
+
+            await template.insert(entity, "posts");
+
+            const sentDoc = (col.insertOne as jest.Mock).mock.calls[0][0];
+            expect(sentDoc).toEqual({ authorId, tags: ["a", "b"], meta: { flag: true } });
+        });
     });
 
     describe("read path — defaults only, no validate, no strip", () => {
@@ -312,6 +383,29 @@ describe("MongoTemplate", () => {
             const template = new MongoTemplate(db);
 
             await expect(template.findById("1", User, "users")).resolves.toEqual({ _id: "1", name: 42 });
+        });
+
+        it("fills in defaults for @ObjectId/@Array/@Object when reading a legacy doc missing them", async () => {
+            const defaultAuthorId = new ObjectId("64b7f9e2a21f6a9e5b000004");
+            const defaultTags: string[] = [];
+            const defaultMeta = {};
+
+            @DocumentDecorator({ collection: "posts" })
+            class Post {
+                @Id() _id!: ObjectId;
+                @ObjectIdField({ default: defaultAuthorId }) authorId!: ObjectId;
+                @ArrayField({ default: defaultTags }) tags!: string[];
+                @ObjectField({ default: defaultMeta }) meta!: Record<string, unknown>;
+            }
+
+            const col = createCollectionMock() as any;
+            col.findOne = jest.fn(async () => ({ _id: "1" })); // legacy doc missing all 3
+            const db = createDbMock(col);
+            const template = new MongoTemplate(db);
+
+            const found = await template.findById("1", Post, "posts");
+
+            expect(found).toEqual({ _id: "1", authorId: defaultAuthorId, tags: defaultTags, meta: defaultMeta });
         });
     });
 });

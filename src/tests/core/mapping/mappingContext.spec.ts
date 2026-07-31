@@ -4,6 +4,9 @@ import { MappingContext } from "../../../core/mapping/mappingContext";
 import { Document } from "../../../core/mapping/document";
 import { Id } from "../../../core/mapping/id";
 import { String as StringField } from "../../../core/mapping/types/string";
+import { ObjectId as ObjectIdField } from "../../../core/mapping/types/objectId";
+import { Array as ArrayField } from "../../../core/mapping/types/array";
+import { PlainObject as ObjectField } from "../../../core/mapping/types/object";
 
 describe("MappingContext", () => {
     describe("getPersistentEntity — collection resolution", () => {
@@ -154,6 +157,45 @@ describe("MappingContext", () => {
 
             const raw = { _id: "1", email: "a@test.com", extra: "sneaky" };
             expect(pe.stripUnknownFields(raw)).toEqual({ _id: "1", email: "a@test.com" });
+        });
+    });
+
+    describe("getPersistentEntity — v2 typed fields (@ObjectId/@Array/@Object)", () => {
+        it("getKnownFieldNames includes @ObjectId/@Array/@Object fields alongside @Id", () => {
+            @Document({ collection: "posts" })
+            class Post {
+                @Id() _id!: ObjectId;
+                @ObjectIdField() authorId!: ObjectId;
+                @ArrayField() tags!: string[];
+                @ObjectField() meta!: Record<string, unknown>;
+            }
+
+            const ctx = new MappingContext();
+            const pe = ctx.getPersistentEntity(Post);
+
+            expect(pe.getKnownFieldNames().sort()).toEqual(["_id", "authorId", "meta", "tags"]);
+        });
+
+        it("end-to-end: stripUnknownFields keeps @ObjectId/@Array/@Object fields, removes an undeclared one", () => {
+            @Document({ collection: "posts", stripUnknownFields: true })
+            class Post {
+                @Id() _id!: ObjectId;
+                @ObjectIdField() authorId!: ObjectId;
+                @ArrayField() tags!: string[];
+                @ObjectField() meta!: Record<string, unknown>;
+            }
+
+            const ctx = new MappingContext();
+            const pe = ctx.getPersistentEntity(Post);
+
+            const authorId = new ObjectId();
+            const raw = { _id: "1", authorId, tags: ["a"], meta: { flag: true }, extra: "sneaky" };
+            expect(pe.stripUnknownFields(raw)).toEqual({
+                _id: "1",
+                authorId,
+                tags: ["a"],
+                meta: { flag: true },
+            });
         });
     });
 });
