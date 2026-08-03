@@ -36,6 +36,22 @@ export interface PropertyTypeEntry {
 }
 
 /**
+ * `default` option chung cho mọi type: giá trị tĩnh, hoặc factory không tham số
+ * được gọi lại mỗi lần `getDefault()` chạy (không memoize).
+ */
+export type DefaultOrFactory<T> = T | (() => T);
+
+export function resolveDefaultValue<T>(raw: DefaultOrFactory<T> | null | undefined): T | null {
+    if (raw == null) {
+        return null;
+    }
+    if (typeof raw === "function") {
+        return (raw as () => T)();
+    }
+    return raw;
+}
+
+/**
  * Property decorator factory dùng chung cho mọi type decorator.
  *
  * Tích luỹ danh sách `{name, descriptor}` theo class (không phải 1 record đơn như `@Id`),

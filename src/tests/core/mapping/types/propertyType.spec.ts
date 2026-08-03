@@ -3,6 +3,7 @@ import {
     definePropertyType,
     getPropertyTypeMetadata,
     PropertyTypeDescriptor,
+    resolveDefaultValue,
 } from "../../../../core/mapping/types/propertyType";
 
 class StubType implements PropertyTypeDescriptor<string> {
@@ -91,5 +92,32 @@ describe("propertyType registration", () => {
         void ChildEntity;
 
         expect(getPropertyTypeMetadata(BaseEntity).map((e) => e.name)).toEqual(["_id"]);
+    });
+});
+
+describe("resolveDefaultValue", () => {
+    it("returns null for undefined", () => {
+        expect(resolveDefaultValue(undefined)).toBeNull();
+    });
+
+    it("returns null for null", () => {
+        expect(resolveDefaultValue(null)).toBeNull();
+    });
+
+    it("returns a static value as-is", () => {
+        expect(resolveDefaultValue("static")).toBe("static");
+    });
+
+    it("calls a factory and returns its result", () => {
+        const factory = jest.fn(() => "generated");
+        expect(resolveDefaultValue(factory)).toBe("generated");
+        expect(factory).toHaveBeenCalledTimes(1);
+    });
+
+    it("calls the factory fresh each time, without memoizing", () => {
+        const factory = () => ({});
+        const first = resolveDefaultValue(factory);
+        const second = resolveDefaultValue(factory);
+        expect(first).not.toBe(second);
     });
 });
