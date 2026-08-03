@@ -57,4 +57,16 @@ describe("@ObjectId", () => {
         expect(descriptor.validate(12345)).toEqual(expect.any(String));
         expect(descriptor.validate({})).toEqual(expect.any(String));
     });
+
+    it("calls a factory default fresh on each getDefault(), yielding a different ObjectId per call", () => {
+        class User {
+            @ObjectId({ default: () => new MongoObjectId() }) authorId!: MongoObjectId;
+        }
+
+        const [{ descriptor }] = getPropertyTypeMetadata(User);
+        const first = descriptor.getDefault() as MongoObjectId;
+        const second = descriptor.getDefault() as MongoObjectId;
+        expect(first).not.toBe(second);
+        expect(first.equals(second)).toBe(false);
+    });
 });

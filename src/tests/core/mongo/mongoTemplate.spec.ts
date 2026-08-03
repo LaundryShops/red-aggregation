@@ -8,6 +8,8 @@ import { String as StringField } from "../../../core/mapping/types/string";
 import { ObjectId as ObjectIdField } from "../../../core/mapping/types/objectId";
 import { Array as ArrayField } from "../../../core/mapping/types/array";
 import { PlainObject as ObjectField } from "../../../core/mapping/types/object";
+import { CustomField } from "../../../core/mapping/types/customField";
+import { Email } from "../../../core/mapping/types/email";
 import { ClauseDefinition } from "../../../query/standardDefinition";
 
 function createCursor<T>(docs: T[]) {
@@ -296,6 +298,135 @@ describe("MongoTemplate", () => {
             const sentDoc = (col.insertOne as jest.Mock).mock.calls[0][0];
             expect(sentDoc).toEqual({ authorId, tags: ["a", "b"], meta: { flag: true } });
         });
+
+        it("factory default on @ObjectId yields a distinct ObjectId per inserted document", async () => {
+            @DocumentDecorator({ collection: "posts" })
+            class Post {
+                @Id() _id!: ObjectId;
+                @ObjectIdField({ default: () => new ObjectId() }) authorId!: ObjectId;
+            }
+
+            const col = createCollectionMock();
+            const db = createDbMock(col);
+            const template = new MongoTemplate(db);
+
+            await template.insert(new Post(), "posts");
+            await template.insert(new Post(), "posts");
+
+            const first = (col.insertOne as jest.Mock).mock.calls[0][0].authorId as ObjectId;
+            const second = (col.insertOne as jest.Mock).mock.calls[1][0].authorId as ObjectId;
+            expect(first).not.toBe(second);
+            expect(first.equals(second)).toBe(false);
+        });
+
+        it("factory default on @Array yields a distinct array reference per inserted document", async () => {
+            @DocumentDecorator({ collection: "posts" })
+            class Post {
+                @Id() _id!: ObjectId;
+                @ArrayField({ default: () => [] }) tags!: string[];
+            }
+
+            const col = createCollectionMock();
+            const db = createDbMock(col);
+            const template = new MongoTemplate(db);
+
+            await template.insert(new Post(), "posts");
+            await template.insert(new Post(), "posts");
+
+            const first = (col.insertOne as jest.Mock).mock.calls[0][0].tags;
+            const second = (col.insertOne as jest.Mock).mock.calls[1][0].tags;
+            expect(first).not.toBe(second);
+            expect(first).toEqual([]);
+            expect(second).toEqual([]);
+        });
+
+        it("factory default on a @CustomField yields a distinct object reference per inserted document", async () => {
+            @DocumentDecorator({ collection: "posts" })
+            class Post {
+                @Id() _id!: ObjectId;
+                @CustomField<Record<string, unknown>>({
+                    kind: "settings",
+                    validate: () => null,
+                    default: () => ({}),
+                })
+                settings!: Record<string, unknown>;
+            }
+
+            const col = createCollectionMock();
+            const db = createDbMock(col);
+            const template = new MongoTemplate(db);
+
+            await template.insert(new Post(), "posts");
+            await template.insert(new Post(), "posts");
+
+            const first = (col.insertOne as jest.Mock).mock.calls[0][0].settings;
+            const second = (col.insertOne as jest.Mock).mock.calls[1][0].settings;
+            expect(first).not.toBe(second);
+            expect(first).toEqual({});
+            expect(second).toEqual({});
+        });
+
+        it("fills in a missing @Email default via a factory called fresh on each insert", async () => {
+            const factory = jest.fn(() => "anon@example.com");
+
+            @DocumentDecorator({ collection: "users" })
+            class User {
+                @Id() _id!: ObjectId;
+                @Email({ default: factory }) email!: string;
+            }
+
+            const col = createCollectionMock();
+            const db = createDbMock(col);
+            const template = new MongoTemplate(db);
+
+            await template.insert(new User(), "users");
+            await template.insert(new User(), "users");
+
+            expect(factory).toHaveBeenCalledTimes(2);
+            expect(col.insertOne).toHaveBeenNthCalledWith(1, expect.objectContaining({ email: "anon@example.com" }));
+            expect(col.insertOne).toHaveBeenNthCalledWith(2, expect.objectContaining({ email: "anon@example.com" }));
+        });
+
+        it("throws before any Mongo call when @Email is given an invalid value", async () => {
+            @DocumentDecorator({ collection: "users" })
+            class User {
+                @Id() _id!: ObjectId;
+                @Email() email!: string;
+            }
+
+            const col = createCollectionMock();
+            const db = createDbMock(col);
+            const template = new MongoTemplate(db);
+
+            const entity = new User();
+            (entity as unknown as Record<string, unknown>).email = 42;
+
+            await expect(template.insert(entity, "users")).rejects.toThrow(/Validation failed/);
+            expect(col.insertOne).not.toHaveBeenCalled();
+        });
+
+        it("strips an undeclared field while keeping @CustomField/@Email fields when stripUnknownFields is true", async () => {
+            @DocumentDecorator({ collection: "users", stripUnknownFields: true })
+            class User {
+                @Id() _id!: ObjectId;
+                @Email() email!: string;
+                @CustomField<number>({ kind: "positive-number", validate: () => null }) score!: number;
+            }
+
+            const col = createCollectionMock();
+            const db = createDbMock(col);
+            const template = new MongoTemplate(db);
+
+            const entity = new User() as unknown as Record<string, unknown>;
+            entity.email = "alice@example.com";
+            entity.score = 5;
+            entity.extra = "sneaky";
+
+            await template.insert(entity, "users");
+
+            const sentDoc = (col.insertOne as jest.Mock).mock.calls[0][0];
+            expect(sentDoc).toEqual({ email: "alice@example.com", score: 5 });
+        });
     });
 
     describe("read path — defaults only, no validate, no strip", () => {
@@ -406,6 +537,26 @@ describe("MongoTemplate", () => {
             const found = await template.findById("1", Post, "posts");
 
             expect(found).toEqual({ _id: "1", authorId: defaultAuthorId, tags: defaultTags, meta: defaultMeta });
+        });
+
+        it("re-invokes a factory default on every read, yielding a fresh value each time and not persisting it back", async () => {
+            @DocumentDecorator({ collection: "posts" })
+            class Post {
+                @Id() _id!: ObjectId;
+                @ObjectIdField({ default: () => new ObjectId() }) authorId!: ObjectId;
+            }
+
+            const col = createCollectionMock() as any;
+            col.findOne = jest.fn(async () => ({ _id: "1" })); // legacy doc missing "authorId", every read
+            const db = createDbMock(col);
+            const template = new MongoTemplate(db);
+
+            const first = await template.findById("1", Post, "posts");
+            const second = await template.findById("1", Post, "posts");
+
+            expect((first as any).authorId.equals((second as any).authorId)).toBe(false);
+            expect(col.replaceOne).not.toHaveBeenCalled();
+            expect(col.updateOne).not.toHaveBeenCalled();
         });
     });
 });

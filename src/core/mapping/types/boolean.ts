@@ -1,7 +1,7 @@
-import { definePropertyType, PropertyTypeDescriptor } from "./propertyType";
+import { DefaultOrFactory, definePropertyType, PropertyTypeDescriptor, resolveDefaultValue } from "./propertyType";
 
 export interface BooleanOptions {
-    default?: boolean | null;
+    default?: DefaultOrFactory<boolean> | null;
 }
 
 class BooleanType implements PropertyTypeDescriptor<boolean> {
@@ -14,7 +14,7 @@ class BooleanType implements PropertyTypeDescriptor<boolean> {
     }
 
     getDefault(): boolean | null {
-        return this.options.default ?? null;
+        return resolveDefaultValue(this.options.default);
     }
 
     validate(value: unknown): string | null {

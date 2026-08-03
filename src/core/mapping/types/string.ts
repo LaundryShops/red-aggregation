@@ -1,7 +1,7 @@
-import { definePropertyType, PropertyTypeDescriptor } from "./propertyType";
+import { DefaultOrFactory, definePropertyType, PropertyTypeDescriptor, resolveDefaultValue } from "./propertyType";
 
 export interface StringOptions {
-    default?: string | null;
+    default?: DefaultOrFactory<string> | null;
 }
 
 class StringType implements PropertyTypeDescriptor<string> {
@@ -14,7 +14,7 @@ class StringType implements PropertyTypeDescriptor<string> {
     }
 
     getDefault(): string | null {
-        return this.options.default ?? null;
+        return resolveDefaultValue(this.options.default);
     }
 
     validate(value: unknown): string | null {

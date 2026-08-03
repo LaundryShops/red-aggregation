@@ -1,7 +1,7 @@
-import { definePropertyType, PropertyTypeDescriptor } from "./propertyType";
+import { DefaultOrFactory, definePropertyType, PropertyTypeDescriptor, resolveDefaultValue } from "./propertyType";
 
 export interface EnumOptions<T> {
-    default?: T | null;
+    default?: DefaultOrFactory<T> | null;
 }
 
 class EnumType<T> implements PropertyTypeDescriptor<T> {
@@ -17,7 +17,7 @@ class EnumType<T> implements PropertyTypeDescriptor<T> {
     }
 
     getDefault(): T | null {
-        return this.options.default ?? null;
+        return resolveDefaultValue(this.options.default);
     }
 
     validate(value: unknown): string | null {

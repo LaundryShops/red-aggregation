@@ -53,4 +53,17 @@ describe("@String", () => {
         expect(descriptor.validate("hello")).toBeNull();
         expect(descriptor.validate(42)).toEqual(expect.any(String));
     });
+
+    it("calls a factory default fresh on each getDefault()", () => {
+        const factory = jest.fn(() => "generated");
+        class User {
+            @StringField({ default: factory }) name!: string;
+        }
+
+        const [{ descriptor }] = getPropertyTypeMetadata(User);
+        expect(descriptor.hasDefault()).toBe(true);
+        expect(descriptor.getDefault()).toBe("generated");
+        expect(descriptor.getDefault()).toBe("generated");
+        expect(factory).toHaveBeenCalledTimes(2);
+    });
 });

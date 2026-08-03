@@ -1,7 +1,7 @@
-import { definePropertyType, PropertyTypeDescriptor } from "./propertyType";
+import { DefaultOrFactory, definePropertyType, PropertyTypeDescriptor, resolveDefaultValue } from "./propertyType";
 
 export interface NumberOptions {
-    default?: number | null;
+    default?: DefaultOrFactory<number> | null;
 }
 
 class NumberType implements PropertyTypeDescriptor<number> {
@@ -14,7 +14,7 @@ class NumberType implements PropertyTypeDescriptor<number> {
     }
 
     getDefault(): number | null {
-        return this.options.default ?? null;
+        return resolveDefaultValue(this.options.default);
     }
 
     validate(value: unknown): string | null {

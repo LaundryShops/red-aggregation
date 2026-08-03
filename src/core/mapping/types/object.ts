@@ -1,7 +1,7 @@
-import { definePropertyType, PropertyTypeDescriptor } from "./propertyType";
+import { DefaultOrFactory, definePropertyType, PropertyTypeDescriptor, resolveDefaultValue } from "./propertyType";
 
 export interface ObjectOptions {
-    default?: Record<string, unknown> | null;
+    default?: DefaultOrFactory<Record<string, unknown>> | null;
 }
 
 class ObjectType implements PropertyTypeDescriptor<Record<string, unknown>> {
@@ -14,7 +14,7 @@ class ObjectType implements PropertyTypeDescriptor<Record<string, unknown>> {
     }
 
     getDefault(): Record<string, unknown> | null {
-        return this.options.default ?? null;
+        return resolveDefaultValue(this.options.default);
     }
 
     validate(value: unknown): string | null {
@@ -29,9 +29,9 @@ class ObjectType implements PropertyTypeDescriptor<Record<string, unknown>> {
 /**
  * Chỉ shallow-check (là object thường, không phải `null`/mảng), không validate field bên trong.
  *
- * `default` (nếu có) là 1 object cố định dùng chung (cùng reference) cho mọi entity
- * thiếu field — không tự clone. Mutate object đó ở 1 entity sẽ ảnh hưởng entity khác
- * cũng nhận cùng default này.
+ * `default` nhận object tĩnh (dùng chung 1 reference cho mọi entity thiếu field —
+ * mutate ở 1 entity sẽ ảnh hưởng entity khác) hoặc factory `() => Record<string, unknown>`
+ * (gọi lại mỗi lần, mỗi entity nhận 1 object riêng — tránh shared-reference).
  *
  * Đặt tên `PlainObject` thay vì `Object`: export 1 hàm top-level tên `Object` sẽ shadow
  * `Object` toàn bộ module scope, vỡ dòng `Object.defineProperty(exports, "__esModule", ...)`

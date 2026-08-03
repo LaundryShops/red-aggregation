@@ -64,4 +64,17 @@ describe("@Enum", () => {
         expect(descriptor.validate("paid")).toBeNull();
         expect(descriptor.validate("cancelled")).toEqual(expect.any(String));
     });
+
+    it("calls a factory default fresh on each getDefault()", () => {
+        const factory = jest.fn(() => "pending");
+        class Order {
+            @Enum(["pending", "paid", "shipped"], { default: factory }) status!: string;
+        }
+
+        const [{ descriptor }] = getPropertyTypeMetadata(Order);
+        expect(descriptor.hasDefault()).toBe(true);
+        expect(descriptor.getDefault()).toBe("pending");
+        expect(descriptor.getDefault()).toBe("pending");
+        expect(factory).toHaveBeenCalledTimes(2);
+    });
 });

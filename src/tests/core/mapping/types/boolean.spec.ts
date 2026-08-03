@@ -53,4 +53,17 @@ describe("@Boolean", () => {
         expect(descriptor.validate(true)).toBeNull();
         expect(descriptor.validate("true")).toEqual(expect.any(String));
     });
+
+    it("calls a factory default fresh on each getDefault()", () => {
+        const factory = jest.fn(() => true);
+        class Account {
+            @BooleanField({ default: factory }) active!: boolean;
+        }
+
+        const [{ descriptor }] = getPropertyTypeMetadata(Account);
+        expect(descriptor.hasDefault()).toBe(true);
+        expect(descriptor.getDefault()).toBe(true);
+        expect(descriptor.getDefault()).toBe(true);
+        expect(factory).toHaveBeenCalledTimes(2);
+    });
 });

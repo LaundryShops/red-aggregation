@@ -1,9 +1,9 @@
-import { definePropertyType, PropertyTypeDescriptor } from "./propertyType";
+import { DefaultOrFactory, definePropertyType, PropertyTypeDescriptor, resolveDefaultValue } from "./propertyType";
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export interface UuidOptions {
-    default?: string | null;
+    default?: DefaultOrFactory<string> | null;
 }
 
 class UuidType implements PropertyTypeDescriptor<string> {
@@ -16,7 +16,7 @@ class UuidType implements PropertyTypeDescriptor<string> {
     }
 
     getDefault(): string | null {
-        return this.options.default ?? null;
+        return resolveDefaultValue(this.options.default);
     }
 
     validate(value: unknown): string | null {

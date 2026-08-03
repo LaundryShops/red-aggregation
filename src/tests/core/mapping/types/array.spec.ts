@@ -57,4 +57,17 @@ describe("@Array", () => {
         expect(descriptor.validate({})).toEqual(expect.any(String));
         expect(descriptor.validate(123)).toEqual(expect.any(String));
     });
+
+    it("calls a factory default fresh on each getDefault(), yielding distinct array references", () => {
+        class Post {
+            @ArrayField({ default: () => [] }) tags!: string[];
+        }
+
+        const [{ descriptor }] = getPropertyTypeMetadata(Post);
+        const first = descriptor.getDefault();
+        const second = descriptor.getDefault();
+        expect(first).not.toBe(second);
+        expect(first).toEqual([]);
+        expect(second).toEqual([]);
+    });
 });

@@ -1,11 +1,12 @@
-import { definePropertyType, PropertyTypeDescriptor } from "./propertyType";
+import { DefaultOrFactory, definePropertyType, PropertyTypeDescriptor, resolveDefaultValue } from "./propertyType";
 
 export interface DateOptions {
     /**
-     * Giá trị mặc định **tĩnh** — dùng đúng 1 instance `Date` này cho mọi entity
-     * thiếu field, KHÔNG phải "thời điểm lúc save" (không phải factory function).
+     * Giá trị `Date` tĩnh (1 instance dùng chung cho mọi entity thiếu field), hoặc
+     * factory `() => Date` được gọi lại mỗi lần `getDefault()` chạy — vd. dùng
+     * `() => new Date()` để sinh "thời điểm hiện tại lúc save".
      */
-    default?: Date | null;
+    default?: DefaultOrFactory<Date> | null;
 }
 
 class DateType implements PropertyTypeDescriptor<Date> {
@@ -18,7 +19,7 @@ class DateType implements PropertyTypeDescriptor<Date> {
     }
 
     getDefault(): Date | null {
-        return this.options.default ?? null;
+        return resolveDefaultValue(this.options.default);
     }
 
     validate(value: unknown): string | null {
@@ -34,9 +35,8 @@ class DateType implements PropertyTypeDescriptor<Date> {
 }
 
 /**
- * `options.default` là 1 giá trị `Date` tĩnh, được chia sẻ cho mọi entity thiếu field —
- * không phải factory sinh "thời điểm hiện tại" mỗi lần save. Nếu cần default động,
- * tự set giá trị field trước khi gọi save() thay vì dùng option này.
+ * `options.default` nhận giá trị `Date` tĩnh (chia sẻ 1 instance cho mọi entity thiếu
+ * field) hoặc factory `() => Date` (gọi lại mỗi lần, vd. sinh "thời điểm hiện tại lúc save").
  */
 export function Date(options?: DateOptions): PropertyDecorator {
     return definePropertyType(new DateType(options));

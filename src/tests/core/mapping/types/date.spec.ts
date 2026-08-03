@@ -55,4 +55,17 @@ describe("@Date", () => {
         expect(descriptor.validate(new Date("not-a-date"))).toEqual(expect.any(String));
         expect(descriptor.validate("2024-01-01")).toEqual(expect.any(String));
     });
+
+    it("calls a factory default fresh on each getDefault(), producing a new Date instance per call", () => {
+        class Article {
+            @DateField({ default: () => new Date() }) publishedAt!: Date;
+        }
+
+        const [{ descriptor }] = getPropertyTypeMetadata(Article);
+        const first = descriptor.getDefault();
+        const second = descriptor.getDefault();
+        expect(first).not.toBe(second);
+        expect(first).toBeInstanceOf(Date);
+        expect(second).toBeInstanceOf(Date);
+    });
 });

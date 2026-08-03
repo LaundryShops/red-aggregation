@@ -12,6 +12,8 @@ describe("public API surface — typed field decorators reachable from package r
         "ObjectId",
         "Array",
         "PlainObject",
+        "CustomField",
+        "Email",
     ])("exports %s as a decorator factory function", (name) => {
         expect(typeof (CoreApi as unknown as Record<string, unknown>)[name]).toBe("function");
     });

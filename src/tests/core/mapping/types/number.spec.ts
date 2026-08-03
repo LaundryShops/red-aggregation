@@ -54,4 +54,17 @@ describe("@Number", () => {
         expect(descriptor.validate(NaN)).toEqual(expect.any(String));
         expect(descriptor.validate("9.99")).toEqual(expect.any(String));
     });
+
+    it("calls a factory default fresh on each getDefault()", () => {
+        const factory = jest.fn(() => 42);
+        class Product {
+            @NumberField({ default: factory }) price!: number;
+        }
+
+        const [{ descriptor }] = getPropertyTypeMetadata(Product);
+        expect(descriptor.hasDefault()).toBe(true);
+        expect(descriptor.getDefault()).toBe(42);
+        expect(descriptor.getDefault()).toBe(42);
+        expect(factory).toHaveBeenCalledTimes(2);
+    });
 });

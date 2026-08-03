@@ -7,6 +7,8 @@ import { String as StringField } from "../../../core/mapping/types/string";
 import { ObjectId as ObjectIdField } from "../../../core/mapping/types/objectId";
 import { Array as ArrayField } from "../../../core/mapping/types/array";
 import { PlainObject as ObjectField } from "../../../core/mapping/types/object";
+import { CustomField } from "../../../core/mapping/types/customField";
+import { Email } from "../../../core/mapping/types/email";
 
 describe("MappingContext", () => {
     describe("getPersistentEntity — collection resolution", () => {
@@ -196,6 +198,37 @@ describe("MappingContext", () => {
                 tags: ["a"],
                 meta: { flag: true },
             });
+        });
+    });
+
+    describe("getPersistentEntity — @CustomField/@Email typed fields", () => {
+        it("getKnownFieldNames includes @CustomField/@Email fields alongside @Id", () => {
+            @Document({ collection: "users" })
+            class User {
+                @Id() _id!: ObjectId;
+                @Email() email!: string;
+                @CustomField<number>({ kind: "positive-number", validate: () => null }) score!: number;
+            }
+
+            const ctx = new MappingContext();
+            const pe = ctx.getPersistentEntity(User);
+
+            expect(pe.getKnownFieldNames().sort()).toEqual(["_id", "email", "score"]);
+        });
+
+        it("end-to-end: stripUnknownFields keeps @CustomField/@Email fields, removes an undeclared one", () => {
+            @Document({ collection: "users", stripUnknownFields: true })
+            class User {
+                @Id() _id!: ObjectId;
+                @Email() email!: string;
+                @CustomField<number>({ kind: "positive-number", validate: () => null }) score!: number;
+            }
+
+            const ctx = new MappingContext();
+            const pe = ctx.getPersistentEntity(User);
+
+            const raw = { _id: "1", email: "a@test.com", score: 5, extra: "sneaky" };
+            expect(pe.stripUnknownFields(raw)).toEqual({ _id: "1", email: "a@test.com", score: 5 });
         });
     });
 });

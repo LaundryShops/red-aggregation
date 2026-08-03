@@ -55,4 +55,17 @@ describe("@Uuid", () => {
         expect(descriptor.validate("not-a-uuid")).toEqual(expect.any(String));
         expect(descriptor.validate(12345)).toEqual(expect.any(String));
     });
+
+    it("calls a factory default fresh on each getDefault()", () => {
+        const factory = jest.fn(() => "123e4567-e89b-12d3-a456-426614174000");
+        class Session {
+            @Uuid({ default: factory }) token!: string;
+        }
+
+        const [{ descriptor }] = getPropertyTypeMetadata(Session);
+        expect(descriptor.hasDefault()).toBe(true);
+        expect(descriptor.getDefault()).toBe("123e4567-e89b-12d3-a456-426614174000");
+        expect(descriptor.getDefault()).toBe("123e4567-e89b-12d3-a456-426614174000");
+        expect(factory).toHaveBeenCalledTimes(2);
+    });
 });

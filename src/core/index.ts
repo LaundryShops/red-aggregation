@@ -11,6 +11,8 @@ export * from "./mapping/types/uuid";
 export * from "./mapping/types/objectId";
 export * from "./mapping/types/array";
 export * from "./mapping/types/object";
+export * from "./mapping/types/customField";
+export * from "./mapping/types/email";
 
 export * from "./repository";
 export * from "./repository/repositoryFactory";

@@ -1,8 +1,8 @@
 import { ObjectId as MongoObjectId } from "mongodb";
-import { definePropertyType, PropertyTypeDescriptor } from "./propertyType";
+import { DefaultOrFactory, definePropertyType, PropertyTypeDescriptor, resolveDefaultValue } from "./propertyType";
 
 export interface ObjectIdOptions {
-    default?: MongoObjectId | null;
+    default?: DefaultOrFactory<MongoObjectId> | null;
 }
 
 class ObjectIdType implements PropertyTypeDescriptor<MongoObjectId> {
@@ -15,7 +15,7 @@ class ObjectIdType implements PropertyTypeDescriptor<MongoObjectId> {
     }
 
     getDefault(): MongoObjectId | null {
-        return this.options.default ?? null;
+        return resolveDefaultValue(this.options.default);
     }
 
     validate(value: unknown): string | null {
@@ -27,8 +27,8 @@ class ObjectIdType implements PropertyTypeDescriptor<MongoObjectId> {
 }
 
 /**
- * `default` (nếu có) là 1 `ObjectId` cố định dùng chung cho mọi entity thiếu field —
- * không dùng cho field cần giá trị duy nhất mỗi document (vd. reference tới doc khác).
+ * `default` nhận `ObjectId` tĩnh (dùng chung 1 instance cho mọi entity thiếu field)
+ * hoặc factory `() => ObjectId` (gọi lại mỗi lần — dùng khi cần giá trị riêng mỗi document).
  */
 export function ObjectId(options?: ObjectIdOptions): PropertyDecorator {
     return definePropertyType(new ObjectIdType(options));
