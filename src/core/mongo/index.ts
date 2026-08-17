@@ -1,4 +1,5 @@
 export * from "./fluentMongoOperations";
+export * from "./keysetCriteria";
 export * from "./mongoConverter";
 export * from "./mongoCriteria";
 export * from "./mongoOperations";

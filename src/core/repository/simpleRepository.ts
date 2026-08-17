@@ -9,11 +9,18 @@ import { Assert } from "../../utils";
 import type { MongoEntityInformation } from "../support/mongoEntityInformation";
 import type { MongoOperations } from "../mongo";
 import type { MongoCriteria } from "../mongo/mongoQuery";
+import { criteriaToFilter } from "../mongo/mongoCriteria";
+import { buildKeysetFilter, reverseSort } from "../mongo/keysetCriteria";
 import type { EntityClass } from "../support/entityMetadata";
 import type { List } from "./list";
 import type { MongoRepository } from "./mongoRepository";
 import { Aggregation } from "../../aggregation";
 import { AggregationResults } from "../../aggregationResults";
+import type { KeysetPageable } from "../../domain/keysetPage/keysetPageable";
+import { DefaultKeySetPage } from "../../domain/keysetPage/defaultKeySetPage";
+import { KeysetArrayList } from "../../domain/keysetPage/keysetPageImpl";
+import type { PagedList } from "../../domain/keysetPage/pagedList";
+import type { Serializable } from "../../domain/keysetPage/types";
 
 function sortToMongoSort(sort: Sort): Record<string, 1 | -1> {
     const out: Record<string, 1 | -1> = {};
@@ -116,6 +123,48 @@ export class SimpleMongoRepository<T, ID = ObjectId> implements MongoRepository<
         }
         const content = (await cursor.toArray()) as T[];
         return new PageImpl(content, pageable, total);
+    }
+
+    async findAllByKeyset(criteria: MongoCriteria, keysetPageable: KeysetPageable): Promise<PagedList<T>> {
+        const sort = keysetPageable.getSort();
+        Assert.isTrue(sort.isSorted(), "KeysetPageable must have a sort to build a keyset filter");
+
+        const baseFilter = criteriaToFilter(criteria);
+        const anchorPage = keysetPageable.getKeysetPage();
+        const direction = keysetPageable.getDirection();
+
+        const filter: Filter<Document> = anchorPage
+            ? {
+                $and: [
+                    baseFilter,
+                    buildKeysetFilter(sort, direction === "NEXT" ? anchorPage.getHighest() : anchorPage.getLowest(), direction),
+                ],
+            }
+            : baseFilter;
+
+        const col = this.mongoOperations.getCollection(this.collectionName);
+        const total = await col.countDocuments(baseFilter);
+
+        const queryMongoSort = sortToMongoSort(direction === "PREVIOUS" ? reverseSort(sort) : sort);
+        const docs = (await col.find(filter).sort(queryMongoSort).limit(keysetPageable.getPageSize()).toArray()) as T[];
+        if (direction === "PREVIOUS") {
+            docs.reverse();
+        }
+
+        const firstResult = keysetPageable.getPageNumber() * keysetPageable.getPageSize();
+        const maxResults = keysetPageable.getPageSize();
+
+        if (docs.length === 0) {
+            const keysetPage = anchorPage ?? new DefaultKeySetPage(firstResult, maxResults, [] as Serializable, [] as Serializable, []);
+            return new KeysetArrayList<T>([], keysetPage, total, firstResult, maxResults);
+        }
+
+        const tuples: Serializable[] = docs.map(
+            (doc) => sort.get().map((order) => (doc as unknown as Document)[order.getProperty()]) as Serializable
+        );
+        const keysetPage = new DefaultKeySetPage(firstResult, maxResults, tuples[0], tuples[tuples.length - 1], tuples);
+
+        return new KeysetArrayList<T>(docs, keysetPage, total, firstResult, maxResults);
     }
 
     async findAllById(ids: Iterable<ID>): Promise<List<T>> {

@@ -4,6 +4,9 @@ import { Sort } from "../../../domain/sort";
 import { Direction } from "../../../domain/order";
 import { SimpleMongoRepository } from "../../../core/repository/simpleRepository";
 import type { MongoEntityInformation } from "../../../core/support/mongoEntityInformation";
+import { KeysetPageRequest } from "../../../domain/keysetPage/keysetPageRequest";
+import { DefaultKeySetPage } from "../../../domain/keysetPage/defaultKeySetPage";
+import { DefaultKeyset } from "../../../domain/keysetPage/defaultKeySet";
 
 function createCursor<T>(docs: T[]) {
     let skipN = 0;
@@ -98,6 +101,75 @@ describe("SimpleMongoRepository", () => {
         expect(page.getTotalElements()).toBe(3);
         expect(col.__cursor.skip).toHaveBeenCalledWith(pageable.getOffset());
         expect(col.__cursor.limit).toHaveBeenCalledWith(pageable.getPageSize());
+    });
+
+    describe("findAllByKeyset", () => {
+        const sort = Sort.by(Direction.ASC, "name");
+
+        it("first page (no anchor) queries with the plain criteria filter and no $or", async () => {
+            const col = createCollectionMock([
+                { _id: "1", name: "A" },
+                { _id: "2", name: "B" },
+            ]);
+            const ops: any = { getCollection: () => col };
+            const repo = new SimpleMongoRepository(metadata, ops);
+
+            const keysetPageable = KeysetPageRequest.of(2, sort);
+            const result = await repo.findAllByKeyset({}, keysetPageable);
+
+            expect(col.find).toHaveBeenCalledWith({});
+            expect(col.__cursor.sort).toHaveBeenCalledWith({ name: 1 });
+            expect(col.__cursor.limit).toHaveBeenCalledWith(2);
+            expect(col.__cursor.skip).not.toHaveBeenCalled();
+            expect(result.getTotalSize()).toBe(2);
+            expect(result.getKeysetPage().getLowest().getTuple()).toEqual(["A"]);
+            expect(result.getKeysetPage().getHighest().getTuple()).toEqual(["B"]);
+        });
+
+        it("NEXT page merges $and: [criteria, keysetFilter] anchored on the previous highest keyset", async () => {
+            const col = createCollectionMock([
+                { _id: "3", name: "C" },
+                { _id: "4", name: "D" },
+            ]);
+            const ops: any = { getCollection: () => col };
+            const repo = new SimpleMongoRepository(metadata, ops);
+
+            const anchor = new DefaultKeySetPage(0, 2, new DefaultKeyset(["B"]), new DefaultKeyset(["B"]));
+            const keysetPageable = KeysetPageRequest.next(KeysetPageRequest.of(2, sort), anchor);
+            const criteria = { active: true };
+
+            const result = await repo.findAllByKeyset(criteria, keysetPageable);
+
+            expect(col.find).toHaveBeenCalledWith({
+                $and: [criteria, { $or: [{ name: { $gt: "B" } }] }],
+            });
+            expect(col.__cursor.sort).toHaveBeenCalledWith({ name: 1 });
+            expect(result.getKeysetPage().getLowest().getTuple()).toEqual(["C"]);
+            expect(result.getKeysetPage().getHighest().getTuple()).toEqual(["D"]);
+        });
+
+        it("PREVIOUS page queries with a reversed sort and returns rows back in natural order", async () => {
+            // Simulates what a DESC-sorted query would fetch seeking backward from "C": nearest-first (B, A).
+            const col = createCollectionMock([
+                { _id: "2", name: "B" },
+                { _id: "1", name: "A" },
+            ]);
+            const ops: any = { getCollection: () => col };
+            const repo = new SimpleMongoRepository(metadata, ops);
+
+            const anchor = new DefaultKeySetPage(2, 2, new DefaultKeyset(["C"]), new DefaultKeyset(["C"]));
+            const keysetPageable = KeysetPageRequest.previous(KeysetPageRequest.next(KeysetPageRequest.of(2, sort), anchor), anchor);
+
+            const result = await repo.findAllByKeyset({}, keysetPageable);
+
+            expect(col.__cursor.sort).toHaveBeenCalledWith({ name: -1 });
+            expect([...result]).toEqual([
+                { _id: "1", name: "A" },
+                { _id: "2", name: "B" },
+            ]);
+            expect(result.getKeysetPage().getLowest().getTuple()).toEqual(["A"]);
+            expect(result.getKeysetPage().getHighest().getTuple()).toEqual(["B"]);
+        });
     });
 
     it("existsById delegates to count(filter)", async () => {
