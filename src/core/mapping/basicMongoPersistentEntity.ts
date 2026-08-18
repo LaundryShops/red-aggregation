@@ -4,6 +4,7 @@ import type { EntityClass } from "../support/entityMetadata";
 import type { MongoPersistentEntity } from "../support/mongoPersistentEntity";
 import type { MongoPersistentProperty } from "../support/mongoPersistentRepository";
 import { BasicPersistentEntity } from "./basicPersistentEntity";
+import type { SoftDeleteMetadata } from "./softDelete";
 import type { PropertyTypeEntry } from "./types/propertyType";
 
 // type PropertyConfig<P = unknown> = {
@@ -25,6 +26,7 @@ export class BasicMongoPersistentEntity<T>
     private readonly collation: CollationOptions | null;
     private readonly stripUnknownFieldsFlag: boolean;
     private readonly propertyTypes: readonly PropertyTypeEntry[];
+    private readonly softDelete: SoftDeleteMetadata | null;
 
     constructor(
         type: EntityClass<T>,
@@ -34,6 +36,7 @@ export class BasicMongoPersistentEntity<T>
             idProperty?: MongoPersistentProperty | null;
             stripUnknownFields?: boolean;
             propertyTypes?: readonly PropertyTypeEntry[];
+            softDelete?: SoftDeleteMetadata | null;
         },
     ) {
         super(type, options?.idProperty ?? null);
@@ -42,6 +45,7 @@ export class BasicMongoPersistentEntity<T>
         this.collation = options?.collation ?? null;
         this.stripUnknownFieldsFlag = options?.stripUnknownFields ?? false;
         this.propertyTypes = options?.propertyTypes ?? [];
+        this.softDelete = options?.softDelete ?? null;
     }
 
     getCollection(): string {
@@ -61,7 +65,22 @@ export class BasicMongoPersistentEntity<T>
         if (this.hasIdProperty()) {
             names.push(this.getRequiredIdProperty().getName());
         }
+        if (this.softDelete != null) {
+            names.push(this.softDelete.deletedAtField, this.softDelete.deletedByField);
+        }
         return Array.from(new Set(names));
+    }
+
+    isSoftDeleteEnabled(): boolean {
+        return this.softDelete != null;
+    }
+
+    getDeletedAtAttribute(): string | null {
+        return this.softDelete?.deletedAtField ?? null;
+    }
+
+    getDeletedByAttribute(): string | null {
+        return this.softDelete?.deletedByField ?? null;
     }
 
     applyDefaults(doc: Record<string, unknown>): void {

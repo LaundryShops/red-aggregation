@@ -59,6 +59,9 @@ describe("SimpleMongoRepository", () => {
         getIdAttribute: () => "_id",
         isVersioned: () => false,
         getVersion: () => null,
+        isSoftDeleteEnabled: () => false,
+        getDeletedAtAttribute: () => null,
+        getDeletedByAttribute: () => null,
         hasCollation: () => false,
         getCollation: () => null,
     };

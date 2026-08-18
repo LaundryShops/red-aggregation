@@ -11,6 +11,7 @@ import type {
 import { ClauseDefinition } from "../query/standardDefinition";
 import { defaultCollectionName, getDocumentMetadata } from "./mapping/document";
 import { MappingContext } from "./mapping/mappingContext";
+import { applySoftDeleteToIndexes, getSoftDeleteMetadata } from "./mapping/softDelete";
 import { criteriaToFilter } from "./mongo/mongoCriteria";
 import type { MongoOperations, MongoList } from "./mongo/mongoOperations";
 import type { EntityClass } from "./support/entityMetadata";
@@ -109,6 +110,18 @@ export class MongoTemplate implements MongoOperations {
                 ? entityClassOrName
                 : this.getCollectionName(entityClassOrName);
         await this.db.collection(name).drop();
+    }
+
+    async ensureIndexes(entityClass: EntityClass): Promise<string[]> {
+        const meta = getDocumentMetadata(entityClass as abstract new (...args: never[]) => unknown);
+        const declaredIndexes = meta?.indexes ?? [];
+        if (declaredIndexes.length === 0) {
+            return [];
+        }
+        const softDelete = getSoftDeleteMetadata(entityClass as abstract new (...args: never[]) => unknown);
+        const indexes = applySoftDeleteToIndexes(declaredIndexes, softDelete);
+        const name = this.getCollectionName(entityClass);
+        return this.db.collection(name).createIndexes(indexes);
     }
 
     insert<T>(objectToSave: T): Promise<T>;

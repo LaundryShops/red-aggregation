@@ -9,6 +9,7 @@ import { Array as ArrayField } from "../../../core/mapping/types/array";
 import { PlainObject as ObjectField } from "../../../core/mapping/types/object";
 import { CustomField } from "../../../core/mapping/types/customField";
 import { Email } from "../../../core/mapping/types/email";
+import { SoftDelete } from "../../../core/mapping/softDelete";
 
 describe("MappingContext", () => {
     describe("getPersistentEntity — collection resolution", () => {
@@ -229,6 +230,51 @@ describe("MappingContext", () => {
 
             const raw = { _id: "1", email: "a@test.com", score: 5, extra: "sneaky" };
             expect(pe.stripUnknownFields(raw)).toEqual({ _id: "1", email: "a@test.com", score: 5 });
+        });
+    });
+
+    describe("getPersistentEntity — @SoftDelete wiring", () => {
+        it("wires isSoftDeleteEnabled/attribute getters when @SoftDelete() is applied", () => {
+            @Document({ collection: "users" })
+            @SoftDelete()
+            class User {
+                @Id() _id!: ObjectId;
+            }
+
+            const ctx = new MappingContext();
+            const pe = ctx.getPersistentEntity(User);
+
+            expect(pe.isSoftDeleteEnabled()).toBe(true);
+            expect(pe.getDeletedAtAttribute()).toBe("deleted_at");
+            expect(pe.getDeletedByAttribute()).toBe("deleted_by");
+        });
+
+        it("defaults to disabled with null attribute getters when @SoftDelete() is absent", () => {
+            @Document({ collection: "users" })
+            class User {
+                @Id() _id!: ObjectId;
+            }
+
+            const ctx = new MappingContext();
+            const pe = ctx.getPersistentEntity(User);
+
+            expect(pe.isSoftDeleteEnabled()).toBe(false);
+            expect(pe.getDeletedAtAttribute()).toBeNull();
+            expect(pe.getDeletedByAttribute()).toBeNull();
+        });
+
+        it("getKnownFieldNames includes deleted_at/deleted_by when stripUnknownFields + @SoftDelete() are combined", () => {
+            @Document({ collection: "users", stripUnknownFields: true })
+            @SoftDelete()
+            class User {
+                @Id() _id!: ObjectId;
+                @StringField() email!: string;
+            }
+
+            const ctx = new MappingContext();
+            const pe = ctx.getPersistentEntity(User);
+
+            expect(pe.getKnownFieldNames().sort()).toEqual(["_id", "deleted_at", "deleted_by", "email"]);
         });
     });
 });

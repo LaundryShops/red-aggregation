@@ -157,6 +157,28 @@ describe("MappingMongoEntityInformation", () => {
         });
     });
 
+    describe("isSoftDeleteEnabled / getDeletedAtAttribute / getDeletedByAttribute", () => {
+        it("should return false/null by default (no softDelete option)", () => {
+            const entity = createEntityMetadata("products");
+            const info = new MappingMongoEntityInformation<Product, ObjectId>(entity);
+
+            expect(info.isSoftDeleteEnabled()).toBe(false);
+            expect(info.getDeletedAtAttribute()).toBeNull();
+            expect(info.getDeletedByAttribute()).toBeNull();
+        });
+
+        it("should delegate to entity metadata when soft delete is enabled", () => {
+            const entity = new BasicMongoPersistentEntity<Product>(Product, "products", {
+                softDelete: { deletedAtField: "deleted_at", deletedByField: "deleted_by" },
+            });
+            const info = new MappingMongoEntityInformation<Product, ObjectId>(entity);
+
+            expect(info.isSoftDeleteEnabled()).toBe(true);
+            expect(info.getDeletedAtAttribute()).toBe("deleted_at");
+            expect(info.getDeletedByAttribute()).toBe("deleted_by");
+        });
+    });
+
     describe("inherited methods from PersistentEntityInformation", () => {
         it("should delegate isNew to persistent entity", () => {
             const entity = createEntityMetadata("products");

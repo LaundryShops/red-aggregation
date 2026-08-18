@@ -145,6 +145,35 @@ describe("BasicMongoPersistentEntity", () => {
 
             expect(entity.getKnownFieldNames()).toEqual(["name"]);
         });
+
+        it("includes deletedAtField/deletedByField when soft delete is enabled", () => {
+            const entity = new BasicMongoPersistentEntity(Product, "products", {
+                propertyTypes: [stubEntry("name")],
+                softDelete: { deletedAtField: "deleted_at", deletedByField: "deleted_by" },
+            });
+
+            expect(entity.getKnownFieldNames().sort()).toEqual(["deleted_at", "deleted_by", "name"]);
+        });
+    });
+
+    describe("soft delete", () => {
+        it("defaults to disabled with null attribute getters when no softDelete option is given", () => {
+            const entity = new BasicMongoPersistentEntity(Product, "products");
+
+            expect(entity.isSoftDeleteEnabled()).toBe(false);
+            expect(entity.getDeletedAtAttribute()).toBeNull();
+            expect(entity.getDeletedByAttribute()).toBeNull();
+        });
+
+        it("reports enabled with attribute names when a softDelete option is given", () => {
+            const entity = new BasicMongoPersistentEntity(Product, "products", {
+                softDelete: { deletedAtField: "deleted_at", deletedByField: "deleted_by" },
+            });
+
+            expect(entity.isSoftDeleteEnabled()).toBe(true);
+            expect(entity.getDeletedAtAttribute()).toBe("deleted_at");
+            expect(entity.getDeletedByAttribute()).toBe("deleted_by");
+        });
     });
 
     describe("applyDefaults", () => {

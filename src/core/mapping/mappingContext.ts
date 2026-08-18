@@ -3,6 +3,7 @@ import type { MongoPersistentEntity } from "../support/mongoPersistentEntity";
 import { getDocumentMetadata, defaultCollectionName } from "./document";
 import { BasicMongoPersistentEntity } from "./basicMongoPersistentEntity";
 import { buildIdProperty } from "./id";
+import { getSoftDeleteMetadata } from "./softDelete";
 import { getPropertyTypeMetadata } from "./types/propertyType";
 
 /**
@@ -22,6 +23,7 @@ export class MappingContext {
     const collection = meta?.collection || defaultCollectionName(type.name);
     const idProperty = buildIdProperty(type as unknown as Function);
     const propertyTypes = getPropertyTypeMetadata(type as unknown as Function);
+    const softDelete = getSoftDeleteMetadata(type as unknown as abstract new (...args: never[]) => unknown);
 
     // Mode đơn giản: chưa parse collation string -> để null
     const entity = new BasicMongoPersistentEntity<T>(type, collection, {
@@ -29,6 +31,7 @@ export class MappingContext {
       idProperty,
       stripUnknownFields: meta?.stripUnknownFields ?? false,
       propertyTypes,
+      softDelete,
     });
 
     this.entities.set(type, entity as MongoPersistentEntity<unknown>);

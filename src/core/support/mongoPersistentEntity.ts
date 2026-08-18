@@ -13,6 +13,15 @@ export interface MongoPersistentEntity<T> extends PersistentEntity<T, MongoPersi
     /** Id property (nếu có) hợp với mọi field có type decorator (`@String`/`@Number`/...), đã dedupe. */
     getKnownFieldNames(): string[];
 
+    /** `@SoftDelete()` đã áp dụng chưa (mặc định `false`). */
+    isSoftDeleteEnabled(): boolean;
+
+    /** Tên field lưu thời điểm soft-delete, hoặc `null` nếu {@link isSoftDeleteEnabled} là `false`. */
+    getDeletedAtAttribute(): string | null;
+
+    /** Tên field lưu người thực hiện soft-delete, hoặc `null` nếu {@link isSoftDeleteEnabled} là `false`. */
+    getDeletedByAttribute(): string | null;
+
     /**
      * Điền default cho field đang `undefined` (field `null` được coi là giá trị cố ý, không bị ghi đè).
      * Mutate `doc` tại chỗ.

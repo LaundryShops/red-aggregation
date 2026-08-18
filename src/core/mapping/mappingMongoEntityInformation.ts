@@ -63,6 +63,18 @@ export class MappingMongoEntityInformation<T, ID>
         // return accessor.getProperty(this.entityMetadata.getRequiredVersionProperty());
     }
 
+    isSoftDeleteEnabled(): boolean {
+        return this.entityMetadata.isSoftDeleteEnabled();
+    }
+
+    getDeletedAtAttribute(): string | null {
+        return this.entityMetadata.getDeletedAtAttribute();
+    }
+
+    getDeletedByAttribute(): string | null {
+        return this.entityMetadata.getDeletedByAttribute();
+    }
+
     hasCollation(): boolean {
         return this.getCollation() != null;
     }

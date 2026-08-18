@@ -3,6 +3,7 @@ import type { Collection, Db, Document } from "mongodb";
 import { ObjectId } from "mongodb";
 import { MongoTemplate } from "../../../core/mongo";
 import { Document as DocumentDecorator } from "../../../core/mapping/document";
+import { SoftDelete } from "../../../core/mapping/softDelete";
 import { Id } from "../../../core/mapping/id";
 import { String as StringField } from "../../../core/mapping/types/string";
 import { ObjectId as ObjectIdField } from "../../../core/mapping/types/objectId";
@@ -36,6 +37,7 @@ function createCollectionMock() {
         deleteOne: jest.fn(async () => ({ acknowledged: true } as any)),
         deleteMany: jest.fn(async () => ({ acknowledged: true } as any)),
         drop: jest.fn(async () => true),
+        createIndexes: jest.fn(async () => [] as string[]),
         __cursor: cursor,
     } as unknown as Collection<Document> & { __cursor: any };
 }
@@ -152,6 +154,89 @@ describe("MongoTemplate", () => {
         await template.remove(entity, "users");
 
         expect(col.deleteOne).toHaveBeenCalledWith({ _id: "x" });
+    });
+
+    describe("ensureIndexes", () => {
+        it("calls createIndexes with exactly the declared indexes array", async () => {
+            @DocumentDecorator({
+                collection: "users",
+                indexes: [{ key: { email: 1 }, unique: true }],
+            })
+            class User {}
+
+            const col = createCollectionMock() as any;
+            col.createIndexes = jest.fn(async () => ["email_1"]);
+            const db = createDbMock(col);
+            const template = new MongoTemplate(db);
+
+            const result = await template.ensureIndexes(User as any);
+
+            expect(db.collection).toHaveBeenCalledWith("users");
+            expect(col.createIndexes).toHaveBeenCalledWith([{ key: { email: 1 }, unique: true }]);
+            expect(result).toEqual(["email_1"]);
+        });
+
+        it("returns [] and never touches the collection when no indexes are declared", async () => {
+            @DocumentDecorator({ collection: "users" })
+            class User {}
+
+            const col = createCollectionMock() as any;
+            const db = createDbMock(col);
+            const template = new MongoTemplate(db);
+
+            const result = await template.ensureIndexes(User as any);
+
+            expect(result).toEqual([]);
+            expect(db.collection).not.toHaveBeenCalled();
+        });
+
+        it("falls back to defaultCollectionName when there is no @Document", async () => {
+            class UserProfile {}
+
+            const col = createCollectionMock() as any;
+            const db = createDbMock(col);
+            const template = new MongoTemplate(db);
+
+            const result = await template.ensureIndexes(UserProfile as any);
+
+            expect(result).toEqual([]);
+            expect(db.collection).not.toHaveBeenCalled();
+        });
+
+        it("auto-injects partialFilterExpression into a unique index for a @SoftDelete() entity", async () => {
+            @DocumentDecorator({
+                collection: "users",
+                indexes: [{ key: { email: 1 }, unique: true }],
+            })
+            @SoftDelete()
+            class User {}
+
+            const col = createCollectionMock() as any;
+            const db = createDbMock(col);
+            const template = new MongoTemplate(db);
+
+            await template.ensureIndexes(User as any);
+
+            expect(col.createIndexes).toHaveBeenCalledWith([
+                { key: { email: 1 }, unique: true, partialFilterExpression: { deleted_at: null } },
+            ]);
+        });
+
+        it("does not inject partialFilterExpression for a plain entity (no @SoftDelete())", async () => {
+            @DocumentDecorator({
+                collection: "users",
+                indexes: [{ key: { email: 1 }, unique: true }],
+            })
+            class User {}
+
+            const col = createCollectionMock() as any;
+            const db = createDbMock(col);
+            const template = new MongoTemplate(db);
+
+            await template.ensureIndexes(User as any);
+
+            expect(col.createIndexes).toHaveBeenCalledWith([{ key: { email: 1 }, unique: true }]);
+        });
     });
 
     describe("write path — defaults, validation, stripUnknownFields", () => {

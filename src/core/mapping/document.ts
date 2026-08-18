@@ -1,3 +1,5 @@
+import type { IndexDescription } from 'mongodb';
+
 export const DOCUMENT_METADATA = Symbol.for('mongodb.document');
 
 declare global {
@@ -22,10 +24,16 @@ export interface DocumentMetadata {
    * sẽ bị loại khỏi document trước khi lưu. Mặc định `false` — mọi field vẫn được lưu như bình thường.
    */
   stripUnknownFields: boolean;
+  /**
+   * Index khai báo cho collection này, áp dụng nguyên vẹn kiểu `IndexDescription` của driver `mongodb`
+   * (hỗ trợ compound/partial/unique/TTL/text index mà không cần DSL riêng). Mặc định `[]`.
+   * Được tạo thật trên MongoDB khi gọi {@link MongoOperations.ensureIndexes}.
+   */
+  indexes: IndexDescription[];
 }
 
 export type DocumentOptions = Partial<
-  Pick<DocumentMetadata, 'language' | 'collation' | 'stripUnknownFields'> & {
+  Pick<DocumentMetadata, 'language' | 'collation' | 'stripUnknownFields' | 'indexes'> & {
     /** @AliasFor collection */
     value: string;
     collection: string;
@@ -56,6 +64,7 @@ export function Document(options: DocumentOptions = {}): ClassDecorator {
       language: options.language ?? '',
       collation: options.collation ?? '',
       stripUnknownFields: options.stripUnknownFields ?? false,
+      indexes: options.indexes ?? [],
     };
     Reflect.defineMetadata(DOCUMENT_METADATA, meta, ctor);
   };
