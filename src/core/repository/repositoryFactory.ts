@@ -4,7 +4,7 @@ import type { MongoEntityInformation } from "../support/mongoEntityInformation";
 import { MappingContext } from "../mapping/mappingContext";
 import { MappingMongoEntityInformation } from "../mapping/mappingMongoEntityInformation";
 import { SimpleMongoRepository } from "./simpleRepository";
-import type { MongoRepository } from "./mongoRepository";
+import type { MongoRepository, SoftDeleteMongoRepository } from "./mongoRepository";
 import { getRepositoryMetadata } from "./repositoryDecorator";
 
 type RepoKey = string;
@@ -81,6 +81,23 @@ export class RepositoryFactory {
         const repo = new SimpleMongoRepository<T, ID>(entityInfo, this.mongoOperations);
         this.entityRepos.set(k, repo as MongoRepository<any, any>);
         return repo;
+    }
+
+    /**
+     * Như {@link getRepository} nhưng trả về type rộng hơn (`SoftDeleteMongoRepository`) —
+     * throw ngay nếu `entityClass` chưa dùng `@SoftDelete()`, trước khi chạm tới Mongo.
+     */
+    getSoftDeleteRepository<T, ID = any>(
+        entityClass: EntityClass<T>,
+        options?: { collection?: string },
+    ): SoftDeleteMongoRepository<T, ID> {
+        const persistentEntity = this.mappingContext.getPersistentEntity(entityClass);
+        if (!persistentEntity.isSoftDeleteEnabled()) {
+            throw new Error(
+                `Entity "${entityClass.name}" is not @SoftDelete()-enabled; cannot obtain a SoftDeleteMongoRepository for it.`,
+            );
+        }
+        return this.getRepository<T, ID>(entityClass, options) as SoftDeleteMongoRepository<T, ID>;
     }
 
     clear(): void {

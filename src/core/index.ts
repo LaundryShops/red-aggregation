@@ -2,6 +2,7 @@ export * from "./mongo";
 export * from "./mapping/mappingContext";
 export * from "./mapping/document";
 export * from "./mapping/id";
+export * from "./mapping/softDelete";
 export * from "./mapping/types/string";
 export * from "./mapping/types/number";
 export * from "./mapping/types/boolean";

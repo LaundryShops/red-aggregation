@@ -2,6 +2,7 @@ import "reflect-metadata";
 import { ObjectId } from "mongodb";
 import { Document } from "../../../core/mapping/document";
 import { Id } from "../../../core/mapping/id";
+import { SoftDelete } from "../../../core/mapping/softDelete";
 import { Repository } from "../../../core/repository/repositoryDecorator";
 import { RepositoryFactory } from "../../../core/repository/repositoryFactory";
 import { SimpleMongoRepository } from "../../../core/repository/simpleRepository";
@@ -29,6 +30,13 @@ describe("RepositoryFactory", () => {
         getResolvedCollection(): string {
             return this.metadata.getCollectionName();
         }
+    }
+
+    @Document({ collection: "soft_users" })
+    @SoftDelete()
+    class SoftDeleteUser {
+        @Id() _id!: ObjectId;
+        email!: string;
     }
 
     beforeEach(() => {
@@ -74,5 +82,41 @@ describe("RepositoryFactory", () => {
 
         expect(baseRepo).not.toBe(overrideRepo);
         expect(overrideRepo).toBe(overrideRepoAgain);
+    });
+
+    describe("getSoftDeleteRepository", () => {
+        it("returns a repository exposing the soft-delete-only methods for a @SoftDelete() entity", () => {
+            const factory = new RepositoryFactory(mongoOperations);
+            const repo = factory.getSoftDeleteRepository(SoftDeleteUser);
+
+            expect(typeof repo.restore).toBe("function");
+            expect(typeof repo.hardDeleteById).toBe("function");
+            expect(typeof repo.findAllIncludingSoftDeleted).toBe("function");
+            expect(typeof repo.findByIdIncludingSoftDeleted).toBe("function");
+            expect(typeof repo.findAllSoftDeleted).toBe("function");
+        });
+
+        it("throws synchronously, before any Mongo call, when the entity is not @SoftDelete()-enabled", () => {
+            const factory = new RepositoryFactory(mongoOperations);
+
+            expect(() => factory.getSoftDeleteRepository(User)).toThrow(/User/);
+            expect(mongoOperations.getCollection).not.toHaveBeenCalled();
+        });
+
+        it("returns the same cached instance as getRepository() for the same entity/collection", () => {
+            const factory = new RepositoryFactory(mongoOperations);
+            const viaGetRepository = factory.getRepository(SoftDeleteUser);
+            const viaGetSoftDeleteRepository = factory.getSoftDeleteRepository(SoftDeleteUser);
+
+            expect(viaGetSoftDeleteRepository).toBe(viaGetRepository);
+        });
+
+        it("does not type-check calling a soft-delete-only method through the plain getRepository()", () => {
+            const factory = new RepositoryFactory(mongoOperations);
+            const repo = factory.getRepository(User);
+
+            // @ts-expect-error restore() is not part of MongoRepository — only SoftDeleteMongoRepository
+            repo.restore;
+        });
     });
 });

@@ -7,3 +7,5 @@ export * from "./pagingAndSortingRepository";
 export * from "./repositoryDecorator";
 export * from "./repositoryFactory";
 export * from "./simpleRepository";
+export * from "./softDeleteCrudRepository";
+export * from "./softDeleteRepository";
