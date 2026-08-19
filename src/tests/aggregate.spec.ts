@@ -11,6 +11,7 @@ import { AggregationPipeline } from '../aggregationPipeline';
 import { AggregationOperationRenderer } from '../aggregate/aggregateOperationContext/aggregateOperationRenderer';
 import { NoOpAggregationOperationContext } from '../aggregate/aggregateOperationContext/noOpAggregationOperationContext';
 import { TypeBasedAggregationOperationContext } from '../aggregate/aggregateOperationContext/typeBasedAggregationOperationContext';
+import { Clause } from '../query/clause';
 
 describe('Aggregation', () => {
 	let context: NoOpAggregationOperationContext;
@@ -115,15 +116,14 @@ describe('Aggregation', () => {
 		const limit = new LimitOperation(3);
 
 		const aggregation = Aggregation.newAggregation(project);
+		aggregation.addPipeline(Aggregation.match(Clause.where('code').is('123')))
 		aggregation.addPipeline([skip, limit]);
 
-		const pipelineDocs = AggregationOperationRenderer.toDocument(
-			Array.from(aggregation.getPipeline().getOperations()),
-			context
-		);
+		const pipelineDocs = aggregation.toPipeline()
 
 		expect(pipelineDocs).toEqual([
 			{ $project: { name: 1 } },
+			{ $match: { code: '123' } },
 			{ $skip: 5 },
 			{ $limit: 3 },
 		]);

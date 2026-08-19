@@ -75,11 +75,23 @@ describe("MappingMongoEntityInformation", () => {
     });
 
     describe("getIdAttribute", () => {
-        it("should return '_id' as the id attribute", () => {
+        it("should return '_id' as fallback when entity has no id property", () => {
             const entity = createEntityMetadata("products");
             const info = new MappingMongoEntityInformation<Product, ObjectId>(entity);
 
             expect(info.getIdAttribute()).toBe("_id");
+        });
+
+        it("should read id property name from entity metadata when present", () => {
+            const entity = createEntityMetadata("products");
+            jest.spyOn(entity, "hasIdProperty").mockReturnValue(true);
+            jest.spyOn(entity, "getRequiredIdProperty").mockReturnValue({
+                getName: () => "productId",
+                getType: () => String as unknown as EntityClass<unknown>,
+            });
+            const info = new MappingMongoEntityInformation<Product, string>(entity);
+
+            expect(info.getIdAttribute()).toBe("productId");
         });
     });
 
@@ -142,6 +154,28 @@ describe("MappingMongoEntityInformation", () => {
             const info = new MappingMongoEntityInformation<Product, ObjectId>(entity);
 
             expect(info.getCollation()).toEqual(collation);
+        });
+    });
+
+    describe("isSoftDeleteEnabled / getDeletedAtAttribute / getDeletedByAttribute", () => {
+        it("should return false/null by default (no softDelete option)", () => {
+            const entity = createEntityMetadata("products");
+            const info = new MappingMongoEntityInformation<Product, ObjectId>(entity);
+
+            expect(info.isSoftDeleteEnabled()).toBe(false);
+            expect(info.getDeletedAtAttribute()).toBeNull();
+            expect(info.getDeletedByAttribute()).toBeNull();
+        });
+
+        it("should delegate to entity metadata when soft delete is enabled", () => {
+            const entity = new BasicMongoPersistentEntity<Product>(Product, "products", {
+                softDelete: { deletedAtField: "deleted_at", deletedByField: "deleted_by" },
+            });
+            const info = new MappingMongoEntityInformation<Product, ObjectId>(entity);
+
+            expect(info.isSoftDeleteEnabled()).toBe(true);
+            expect(info.getDeletedAtAttribute()).toBe("deleted_at");
+            expect(info.getDeletedByAttribute()).toBe("deleted_by");
         });
     });
 
