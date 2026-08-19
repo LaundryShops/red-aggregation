@@ -10,28 +10,53 @@ import type {
 } from "mongodb";
 import { ClauseDefinition } from "../query/standardDefinition";
 import { defaultCollectionName, getDocumentMetadata } from "./mapping/document";
+import { MappingContext } from "./mapping/mappingContext";
+import { applySoftDeleteToIndexes, getSoftDeleteMetadata } from "./mapping/softDelete";
 import { criteriaToFilter } from "./mongo/mongoCriteria";
 import type { MongoOperations, MongoList } from "./mongo/mongoOperations";
 import type { EntityClass } from "./support/entityMetadata";
 import type { MongoCriteria, MongoUpdateDefinition } from "./mongo/mongoQuery";
 
-function entityToDocument<T>(entity: T): Document {
-    if (entity !== null && typeof entity === "object") {
-        return { ...(entity as object) } as Document;
-    }
-    throw new Error("Entity must be a non-null object for MongoDB persistence");
-}
-
-function documentToEntity<T>(doc: Document | null): T | null {
-    if (doc == null) {
-        return null;
-    }
-    return doc as T;
-}
-
 export class MongoTemplate implements MongoOperations {
-    constructor(private readonly db: Db) {}
-    
+    constructor(
+        private readonly db: Db,
+        private readonly mappingContext: MappingContext = new MappingContext(),
+    ) {}
+
+    /**
+     * Spread entity thành document, rồi áp `applyDefaults` → `validateForWrite` (throw nếu có lỗi,
+     * không gửi gì tới Mongo) → `stripUnknownFields` (no-op khi option tắt) — theo đúng thứ tự.
+     */
+    private entityToDocument<T>(entity: T, entityClass: EntityClass<T>): Document {
+        if (entity === null || typeof entity !== "object") {
+            throw new Error("Entity must be a non-null object for MongoDB persistence");
+        }
+        const raw = { ...(entity as object) } as Record<string, unknown>;
+        const persistentEntity = this.mappingContext.getPersistentEntity(entityClass);
+
+        persistentEntity.applyDefaults(raw);
+
+        const errors = persistentEntity.validateForWrite(raw);
+        if (errors.length > 0) {
+            throw new Error(`Validation failed for entity "${entityClass.name}": ${errors.join("; ")}`);
+        }
+
+        return persistentEntity.stripUnknownFields(raw) as Document;
+    }
+
+    /**
+     * Chỉ áp `applyDefaults` — không validate, không strip (đọc dữ liệu legacy không được phép
+     * "biến mất" field hay bị throw vì không hợp lệ theo rule mới).
+     */
+    private documentToEntity<T>(doc: Document | null, entityClass: EntityClass<T>): T | null {
+        if (doc == null) {
+            return null;
+        }
+        const persistentEntity = this.mappingContext.getPersistentEntity(entityClass);
+        persistentEntity.applyDefaults(doc as Record<string, unknown>);
+        return doc as T;
+    }
+
     aggregate(pipeline: Document[], collectionName: string): AggregationCursor<Document> {
         return this.db.collection(collectionName).aggregate(pipeline, {
             allowDiskUse: true,
@@ -87,6 +112,18 @@ export class MongoTemplate implements MongoOperations {
         await this.db.collection(name).drop();
     }
 
+    async ensureIndexes(entityClass: EntityClass): Promise<string[]> {
+        const meta = getDocumentMetadata(entityClass as abstract new (...args: never[]) => unknown);
+        const declaredIndexes = meta?.indexes ?? [];
+        if (declaredIndexes.length === 0) {
+            return [];
+        }
+        const softDelete = getSoftDeleteMetadata(entityClass as abstract new (...args: never[]) => unknown);
+        const indexes = applySoftDeleteToIndexes(declaredIndexes, softDelete);
+        const name = this.getCollectionName(entityClass);
+        return this.db.collection(name).createIndexes(indexes);
+    }
+
     insert<T>(objectToSave: T): Promise<T>;
     insert<T>(objectToSave: T, collectionName: string): Promise<T>;
     insert<T>(batchToSave: readonly T[], entityClass: EntityClass): Promise<MongoList<T>>;
@@ -103,17 +140,17 @@ export class MongoTemplate implements MongoOperations {
             const collectionName =
                 typeof second === "string" ? second : this.getCollectionName(second as EntityClass);
             const col = this.db.collection<Document>(collectionName);
-            const docs = batch.map((row) => entityToDocument(row));
+            const docs = batch.map((row) =>
+                this.entityToDocument(row, (row as object).constructor as EntityClass),
+            );
             await col.insertMany([...docs]);
             return batch;
         }
         const objectToSave = first as T;
-        const collectionName =
-            typeof second === "string"
-                ? second
-                : this.getCollectionName((objectToSave as object).constructor as EntityClass);
+        const entityClass = (objectToSave as object).constructor as EntityClass;
+        const collectionName = typeof second === "string" ? second : this.getCollectionName(entityClass);
         const col = this.db.collection<Document>(collectionName);
-        const doc = entityToDocument(objectToSave);
+        const doc = this.entityToDocument(objectToSave, entityClass);
         const result = await col.insertOne(doc);
         if (result.insertedId != null && objectToSave && typeof objectToSave === "object") {
             (objectToSave as Record<string, unknown>)._id = result.insertedId;
@@ -130,11 +167,10 @@ export class MongoTemplate implements MongoOperations {
     }
 
     async save<T>(objectToSave: T, collectionName?: string): Promise<T> {
-        const name =
-            collectionName ??
-            this.getCollectionName((objectToSave as object).constructor as EntityClass);
+        const entityClass = (objectToSave as object).constructor as EntityClass;
+        const name = collectionName ?? this.getCollectionName(entityClass);
         const col = this.db.collection<Document>(name);
-        const doc = entityToDocument(objectToSave);
+        const doc = this.entityToDocument(objectToSave, entityClass);
         const id = doc._id;
         if (id != null) {
             await col.replaceOne({ _id: id } as Filter<Document>, doc, { upsert: true });
@@ -157,7 +193,7 @@ export class MongoTemplate implements MongoOperations {
         const name = collectionName ?? this.getCollectionName(entityClass);
         const col = this.db.collection<Document>(name);
         const doc = await col.findOne({ _id: id } as Filter<Document>);
-        return documentToEntity<T>(doc);
+        return this.documentToEntity<T>(doc, entityClass);
     }
 
     findOne<T>(query: MongoCriteria, entityClass: EntityClass<T>): Promise<T | null>;
@@ -171,7 +207,7 @@ export class MongoTemplate implements MongoOperations {
         const col = this.db.collection<Document>(name);
         const filter = criteriaToFilter(query);
         const doc = await col.findOne(filter);
-        return documentToEntity<T>(doc);
+        return this.documentToEntity<T>(doc, entityClass);
     }
 
     find<T>(query: MongoCriteria, entityClass: EntityClass<T>): Promise<MongoList<T>>;
@@ -185,7 +221,7 @@ export class MongoTemplate implements MongoOperations {
         const col = this.db.collection<Document>(name);
         const filter = criteriaToFilter(query);
         const list = await col.find(filter).toArray();
-        return list as T[];
+        return list.map((doc) => this.documentToEntity<T>(doc, entityClass)) as T[];
     }
 
     findAll<T>(entityClass: EntityClass<T>): Promise<MongoList<T>>;
@@ -194,7 +230,7 @@ export class MongoTemplate implements MongoOperations {
         const name = collectionName ?? this.getCollectionName(entityClass);
         const col = this.db.collection<Document>(name);
         const list = await col.find({}).toArray();
-        return list as T[];
+        return list.map((doc) => this.documentToEntity<T>(doc, entityClass)) as T[];
     }
 
     count(query: MongoCriteria, entityClass: EntityClass): Promise<number>;

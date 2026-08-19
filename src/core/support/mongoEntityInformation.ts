@@ -23,6 +23,21 @@ export interface MongoEntityInformation<T, ID> extends EntityInformation<T, ID> 
     getVersion(entity: T): unknown | null;
 
     /**
+     * Có `@SoftDelete()` hay không.
+     */
+    isSoftDeleteEnabled(): boolean;
+
+    /**
+     * Tên field lưu thời điểm soft-delete, hoặc {@code null} nếu {@link isSoftDeleteEnabled} là `false`.
+     */
+    getDeletedAtAttribute(): string | null;
+
+    /**
+     * Tên field lưu người thực hiện soft-delete, hoặc {@code null} nếu {@link isSoftDeleteEnabled} là `false`.
+     */
+    getDeletedByAttribute(): string | null;
+
+    /**
      * Entity có khai báo collation hay không.
      */
     hasCollation(): boolean;
@@ -48,6 +63,18 @@ export abstract class AbstractMongoEntityInformation<T, ID>
     }
 
     getVersion(_entity: T): unknown | null {
+        return null;
+    }
+
+    isSoftDeleteEnabled(): boolean {
+        return false;
+    }
+
+    getDeletedAtAttribute(): string | null {
+        return null;
+    }
+
+    getDeletedByAttribute(): string | null {
         return null;
     }
 

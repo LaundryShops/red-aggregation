@@ -14,6 +14,8 @@ describe("@Document mapping", () => {
             collection: "empty_doc",
             language: "",
             collation: "",
+            stripUnknownFields: false,
+            indexes: [],
         });
     });
 
@@ -67,6 +69,8 @@ describe("@Document mapping", () => {
             collection: "articles",
             language: "en",
             collation: "locale: en_US",
+            stripUnknownFields: false,
+            indexes: [],
         });
     });
 
@@ -74,6 +78,37 @@ describe("@Document mapping", () => {
         class Plain {}
 
         expect(getDocumentMetadata(Plain)).toBeUndefined();
+    });
+
+    it("defaults stripUnknownFields to false when omitted", () => {
+        @Document({ collection: "users" })
+        class User {}
+
+        expect(getDocumentMetadata(User).stripUnknownFields).toBe(false);
+    });
+
+    it("persists stripUnknownFields when set to true", () => {
+        @Document({ collection: "users", stripUnknownFields: true })
+        class User {}
+
+        expect(getDocumentMetadata(User).stripUnknownFields).toBe(true);
+    });
+
+    it("defaults indexes to an empty array when omitted", () => {
+        @Document({ collection: "users" })
+        class User {}
+
+        expect(getDocumentMetadata(User).indexes).toEqual([]);
+    });
+
+    it("persists declared indexes", () => {
+        @Document({
+            collection: "users",
+            indexes: [{ key: { email: 1 }, unique: true }],
+        })
+        class User {}
+
+        expect(getDocumentMetadata(User).indexes).toEqual([{ key: { email: 1 }, unique: true }]);
     });
 });
 

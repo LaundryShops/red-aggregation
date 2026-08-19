@@ -45,10 +45,9 @@ export class MappingMongoEntityInformation<T, ID>
     }
 
     getIdAttribute(): string {
-        return '_id';
-        // return this.entityMetadata.hasIdProperty()
-        //     ? this.entityMetadata.getRequiredIdProperty().getName()
-        //     : "_id";
+        return this.entityMetadata.hasIdProperty()
+            ? this.entityMetadata.getRequiredIdProperty().getName()
+            : "_id";
     }
 
     isVersioned(): boolean {
@@ -62,6 +61,18 @@ export class MappingMongoEntityInformation<T, ID>
         // }
         // const accessor = this.entityMetadata.getPropertyAccessor(entity);
         // return accessor.getProperty(this.entityMetadata.getRequiredVersionProperty());
+    }
+
+    isSoftDeleteEnabled(): boolean {
+        return this.entityMetadata.isSoftDeleteEnabled();
+    }
+
+    getDeletedAtAttribute(): string | null {
+        return this.entityMetadata.getDeletedAtAttribute();
+    }
+
+    getDeletedByAttribute(): string | null {
+        return this.entityMetadata.getDeletedByAttribute();
     }
 
     hasCollation(): boolean {

@@ -31,6 +31,12 @@ export interface MongoOperations extends FluentMongoOperations {
 
     dropCollection(collectionName: string): Promise<void>;
 
+    /**
+     * Tạo các index khai báo qua `@Document({ indexes: [...] })` cho entity này (no-op nếu không khai báo gì).
+     * Gọi thủ công lúc bootstrap — không tự động chạy ngầm ở đâu khác.
+     */
+    ensureIndexes(entityClass: EntityClass): Promise<string[]>;
+
     insert<T>(objectToSave: T): Promise<T>;
 
     insert<T>(objectToSave: T, collectionName: string): Promise<T>;
